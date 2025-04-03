@@ -3,5 +3,3 @@ description: Supporting materials for the LLM Engineering Essentials course by N
 theme: minima
 permalink: /:title/
 baseurl: "/knowledge-base"
-exclude:
-  - assets
