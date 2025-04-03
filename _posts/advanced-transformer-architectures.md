@@ -134,11 +134,17 @@ Despite being described as totally separate layers, in reality, attention heads 
 
 - Theoretically, each $i$-th attention head has its own matrices: $W_{i,Q},W_{i,K}, W_{i,V}, W_{i,O}$,
 - Yet in practice, they are stored and applied each as one matrix:
-$W_Q = \begin{pmatrix}W_{1,Q} & W_{2,Q} & \cdots & W_{\mathrm{n\_heads}, Q}\end{pmatrix}$
-**etc. When applying it, we do
-*$q_{total} = xW_Q,$*
-and after that the row vector $q_{total}$ is cut into $n\_heads$ **row vectors $*q_1, q_2,\ldots, q{_\mathrm{n\_heads}}*$.
+
+  $$W_Q = \begin{pmatrix}W_{1,Q} & W_{2,Q} & \cdots & W_{\mathrm{n\_heads}, Q}\end{pmatrix}$$
+
+  etc. When applying it, we do
+
+  $$q_{total} = xW_Q,$$
+
+  and after that the row vector $q_{total}$ is cut into $n\_heads$ **row vectors $*q_1, q_2,\ldots, q{_\mathrm{n\_heads}}*$.
+
 - So, for example, if Llama3-8B has a model dimension (=hidden size) 4,096 and 32 attention heads, then each attention head's query has a dimension of $\frac{4096}{32} = 128$.
+
 - I will not cover Llama's keys and values, because there are some additional considerations to this; see the Group Query Attention section for more details.
 
 # The story of attention
@@ -154,7 +160,7 @@ The complexity of the attention mechanism is one of the main bottlenecks in the 
 Most likely drawing inspiration from convolutional networks, sliding window attention suggests to consider only a fixed window around each token, thus making the computational cost linear on the context length.
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=16O8_gaHNoAL_j5xPhNphqMEYAbxqN_ja" width=600 />
+<img src="https://drive.google.com/uc?export=view&id=16O8_gaHNoAL_j5xPhNphqMEYAbxqN_ja" width=200 />
 
 [Source](https://arxiv.org/pdf/2310.06825)
 </center>
@@ -171,7 +177,7 @@ Even a single attention mechanism is costly, and going multi-head only makes it 
 The next step was suggested in [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/pdf/2305.13245.pdf), that is, having many value heads, which are grouped on several value and key heads:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=16O8_gaHNoAL_j5xPhNphqMEYAbxqN_ja" width=600 />
+<img src="https://drive.google.com/uc?export=view&id=11LAJZAriQBa32BQ4HsiNKycEDZJaotOY" width=600 />
 
 [Source](https://arxiv.org/pdf/2305.13245.pdf5)
 </center>
@@ -187,7 +193,7 @@ Key-value caches are now a natural feature of almost every transformer model. Th
 The attention mechanism is cool, but it doesn't take into account token order. To add this information, the original transformer paper suggested using absolute positional encoding: this is a special vector for each position number $i$ that is added to the token embedding.
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1i-ZCP-GE-a9_nm4Kc0mblRiqcttMKi5I" width=600 />
+<img src="https://drive.google.com/uc?export=view&id=1i-ZCP-GE-a9_nm4Kc0mblRiqcttMKi5I" width=400 />
 </center>
 
 In this section, we'll discuss how we can improve this mechanism.
@@ -201,9 +207,7 @@ Relative positional encoding was introduced by Google in [Self-Attention with Re
 First of all, let's change our view on positional embeddings; they are necessary to introduce information about positions into the attention mechanism, so let's consider them as details inside of this:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1_U7z1L2MZSJvV53p_GhCxatsyYIhXaUx" width=600 />
-
-[Source](https://arxiv.org/pdf/1803.02155.pdf)
+<img src="https://drive.google.com/uc?export=view&id=1_U7z1L2MZSJvV53p_GhCxatsyYIhXaUx" width=400 />
 </center>
 
 Note that in the original transformer architecture, positional embeddings are indeed introduced into each attention layer due to residual connections. However, in modern architectures, this is no longer equivalent due to pre-normalization.
@@ -296,7 +300,7 @@ $$\theta_i = 10000^{-2(i-1)/d}$$
 **Long-term decay**. RoPE embeddings provide long-term decay property, which means the $q_mk_n^T$ will decay when the relative position increases. Take this illustration from the paper:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1_U7z1L2MZSJvV53p_GhCxatsyYIhXaUx" width=600 />
+<img src="https://drive.google.com/uc?export=view&id=1tptLyCKb051TKvxE0xWdZYEZxdWHeZZX" width=600 />
 
 [Source](https://arxiv.org/pdf/2104.09864v5.pdf)
 </center>
@@ -352,10 +356,13 @@ Mixtral has a similar architecture to Mistral 7B, but some of the Feedforward la
 Here’s what we have here: a gating function that decides which expert will receive the input $x$. It works as follows. 
 
 - First, for each expert number $i$ it calculates
-  $$H(x)_i = (x\cdot W_g)i + \mathrm{StandardNormal()}\cdot\mathrm{SoftPlus}((x\cdot W_{noise})_i),$$
+
+  $$H(x)_i = (x\cdot W_g)_i + \text{StandardNormal()}\cdot\text{SoftPlus}((x\cdot W_{noise})_i),$$
+
   where $W$'s are trainable weigths and randomness aids load balancing.
   
 - Then, we only pick experts with top $k$ values of $H$:
+
   $$\mathrm{KeepTopK}(H(x), k)_i = \begin{cases}
 H(x)_i, &\text{if $H(x)_i$ is among the top-$k$ of $H(x)_i$},\\
 -\infty, &\text{otherwise}.
@@ -392,7 +399,7 @@ In essence, a complex number is something of form $a + bi$, where $i$ is a phant
 - Complex numbers have a convenient interpretation as vectors of a two-dimensional plane:
 
   <center>
-  <img src="https://drive.google.com/uc?export=view&id=1xKYF2hoETTnNe3FMYPZEjeOOt_BKjYet" width=600 />
+  <img src="https://drive.google.com/uc?export=view&id=1xKYF2hoETTnNe3FMYPZEjeOOt_BKjYet" width=200 />
   </center>
     
   And the sum of two complex numbers = the sum of their corresponding vectors.
