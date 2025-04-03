@@ -40,7 +40,7 @@ $$\mathrm{GELU}(x) = x\mathbb{P}\{\xi\leqslant x\} = x\Phi(X)$$
 where $\xi\sim\mathcal{N}(0, 1)$ and $\Phi$ is the cdf of a standard gaussian distribution.
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1bnyapeT74yeo8vRzQtLVKV_SYbTwNdp_" width=400 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png)
 
 [Source](https://arxiv.org/pdf/1606.08415v5.pdf)
 </center>
@@ -62,7 +62,7 @@ In this case, $\otimes$ stands for elementwise product. SwiGLU recalls a gating 
 Although this idea is about transformer block architecture as a whole, I'll make note of this concept in this section. This was suggested by the authors of [mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax) and later used in [PaLM](https://arxiv.org/pdf/2204.02311.pdf). In a typical transformer block, attention and MLP are arranged consequently, and this approach decouples them:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1d6YoJTsLQWW91Tq967yzyUFI0XqqsSfZ" width=600 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/Swish.png)
 </center>
 
 Note the peculiar position of LayerNorm; you'll see more about this in the following section.
@@ -86,7 +86,7 @@ RMSNorm yields comparable performance against LayerNorm but shows superiority in
 Pre-normalization was introduced in [this paper](https://arxiv.org/pdf/2002.04745.pdf) and it suggests one, performing normalization before attention and before FFN (rather than after them); and two, running normalization in parallel to the residue stream:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1GOgDn53jnZUovSRyk9g3sHszYkyk2Lgh" width=600 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/pre-normalization.png)
 
 [Source](https://arxiv.org/pdf/2002.04745.pdf)
 </center>
@@ -110,13 +110,13 @@ At this point, it's also good to note that there are, in a sense, two different 
 To understand what the attention mask is, let's recall how self-attention works:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1CxiPR3k2jH095wZ9bM22_L8iK90t8-df" width=600 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/usual_attention.png)
 </center>
 
 To prevent “looking into the future”, we need to zero all elements of $QK^T$ over the main diagonal (those with $i < j$). This can be done by elementwise multiplication on the $0-1$ matrix called \textbf{attention mask}:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1Oytu77SEN00g9vhEfdTE6HXIwGYKq_na" width=600 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/attention_mask.png)
 </center>
 
 
@@ -161,7 +161,7 @@ The complexity of the attention mechanism is one of the main bottlenecks in the 
 Most likely drawing inspiration from convolutional networks, sliding window attention suggests to consider only a fixed window around each token, thus making the computational cost linear on the context length.
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=16O8_gaHNoAL_j5xPhNphqMEYAbxqN_ja" width=200 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/sliding-window-attention.png)
 
 [Source](https://arxiv.org/pdf/2310.06825)
 </center>
@@ -178,7 +178,7 @@ Even a single attention mechanism is costly, and going multi-head only makes it 
 The next step was suggested in [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/pdf/2305.13245.pdf), that is, having many value heads, which are grouped on several value and key heads:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=11LAJZAriQBa32BQ4HsiNKycEDZJaotOY" width=600 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/group-query-attention.png)
 
 [Source](https://arxiv.org/pdf/2305.13245.pdf5)
 </center>
@@ -194,7 +194,7 @@ Key-value caches are now a natural feature of almost every transformer model. Th
 The attention mechanism is cool, but it doesn't take into account token order. To add this information, the original transformer paper suggested using absolute positional encoding: this is a special vector for each position number $i$ that is added to the token embedding.
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1i-ZCP-GE-a9_nm4Kc0mblRiqcttMKi5I" width=400 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-encoding.png)
 </center>
 
 In this section, we'll discuss how we can improve this mechanism.
@@ -208,7 +208,7 @@ Relative positional encoding was introduced by Google in [Self-Attention with Re
 First of all, let's change our view on positional embeddings; they are necessary to introduce information about positions into the attention mechanism, so let's consider them as details inside of this:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1_U7z1L2MZSJvV53p_GhCxatsyYIhXaUx" width=400 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embeddings-align.png)
 </center>
 
 Note that in the original transformer architecture, positional embeddings are indeed introduced into each attention layer due to residual connections. However, in modern architectures, this is no longer equivalent due to pre-normalization.
@@ -301,7 +301,7 @@ $$\theta_i = 10000^{-2(i-1)/d}$$
 **Long-term decay**. RoPE embeddings provide long-term decay property, which means the $q_mk_n^T$ will decay when the relative position increases. Take this illustration from the paper:
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1tptLyCKb051TKvxE0xWdZYEZxdWHeZZX" width=600 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png)
 
 [Source](https://arxiv.org/pdf/2104.09864v5.pdf)
 </center>
@@ -349,7 +349,7 @@ The mixture of experts approach is featured in the [Mixtral model](https://huggi
 Mixtral has a similar architecture to Mistral 7B, but some of the Feedforward layers are replaced with a sparse MoE (Mixture of Experts) layer.
 
 <center>
-<img src="https://drive.google.com/uc?export=view&id=1dBiZwFRZ5zTTA2nw1TbllgG0JCrqL5e0" width=600 />
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/moe.png)
 
 [Source](https://huggingface.co/blog/moe)
 </center>
@@ -400,7 +400,7 @@ In essence, a complex number is something of form $a + bi$, where $i$ is a phant
 - Complex numbers have a convenient interpretation as vectors of a two-dimensional plane:
 
   <center>
-  <img src="https://drive.google.com/uc?export=view&id=1xKYF2hoETTnNe3FMYPZEjeOOt_BKjYet" width=200 />
+  <![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/complex_numbers.png)
   </center>
     
   And the sum of two complex numbers = the sum of their corresponding vectors.
