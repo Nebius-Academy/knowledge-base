@@ -48,7 +48,7 @@ where $\xi\sim\mathcal{N}(0, 1)$ and $\Phi$ is the cdf of a standard gaussian di
 
 $$\mathrm{Swish}(x) = x\cdot\sigma(\beta x)$$
     
-    Here, $\beta$ is a parameter and $\sigma$ is the familiar sigmoid function. GELU can be approximated with Swish as $x\sigma(1.702x)$.
+  Here, $\beta$ is a parameter and $\sigma$ is the familiar sigmoid function. GELU can be approximated with Swish as $x\sigma(1.702x)$.
     
 3. **SwiGLU** was introduced in [GLU Variants Improve Transformer](https://arxiv.org/pdf/2002.05202v1.pdf). It's actually more than just a new activation, because it also adds third trainable weight matrix to the feedforward block:
 
@@ -72,7 +72,7 @@ Note the peculiar position of LayerNorm; you'll see more about this in the follo
 
 This was introduced in [Root Mean Square Layer Normalization paper](https://arxiv.org/pdf/1910.07467.pdf) The normalization technique applied here ignores centering and simply sets the scale. So, for a vector $a$ the new values will be:
 
-$$\overline{a}_i = \frac{a_i}{\mathrm{RMS}(a_i)}g_i$$
+$$\overline{a}_i = \frac{a_i}{\text{RMS}(a_i)}g_i$$
 
 In this case, $g_i$ is trainable and the following formula is used to calculate RMS(a):
 
@@ -135,13 +135,13 @@ Despite being described as totally separate layers, in reality, attention heads 
 - Theoretically, each $i$-th attention head has its own matrices: $W_{i,Q},W_{i,K}, W_{i,V}, W_{i,O}$,
 - Yet in practice, they are stored and applied each as one matrix:
 
-  $$W_Q = \begin{pmatrix}W_{1,Q} & W_{2,Q} & \cdots & W_{\mathrm{n\_heads}, Q}\end{pmatrix}$$
+  $$W_Q = \begin{pmatrix}W_{1,Q} & W_{2,Q} & \cdots & W_{\text{n\_heads}, Q}\end{pmatrix}$$
 
   etc. When applying it, we do
 
   $$q_{total} = xW_Q,$$
 
-  and after that the row vector $q_{total}$ is cut into $n\_heads$ **row vectors $*q_1, q_2,\ldots, q{_\mathrm{n\_heads}}*$.
+  and after that the row vector $q_{total}$ is cut into $n\_heads$ row vectors $q_1, q_2,\ldots, q_{\text{n\_heads}}$.
 
 - So, for example, if Llama3-8B has a model dimension (=hidden size) 4,096 and 32 attention heads, then each attention head's query has a dimension of $\frac{4096}{32} = 128$.
 
@@ -182,7 +182,7 @@ The next step was suggested in [GQA: Training Generalized Multi-Query Transforme
 [Source](https://arxiv.org/pdf/2305.13245.pdf5)
 </center>
 
-Now we can return to Llama-3; if we look at this [technical report](https://arxiv.org/pdf/2407.21783), it shows that “Key/Value Heads” is 8. Given that there are 32 attention heads (=how many queries), we see that there are 4 query heads per key/value. Moreover, with the attention head dimension of 128, we may see that the dimensions of the total $W_Q$ and $W_K$ are $\mathrm{hidden\_dim}\times(128\cdot 8) = 4096\times1024.$
+Now we can return to Llama-3; if we look at this [technical report](https://arxiv.org/pdf/2407.21783), it shows that “Key/Value Heads” is 8. Given that there are 32 attention heads (=how many queries), we see that there are 4 query heads per key/value. Moreover, with the attention head dimension of 128, we may see that the dimensions of the total $W_Q$ and $W_K$ are $\text{hidden\_dim}\times(128\cdot 8) = 4096\times1024.$
 
 ## Key-Value caches
 
@@ -357,7 +357,7 @@ Here’s what we have here: a gating function that decides which expert will rec
 
 - First, for each expert number $i$ it calculates
 
-  $$H(x)_i = (x\cdot W_g)_i + \text{StandardNormal()}\cdot\text{SoftPlus}((x\cdot W_{noise})_i),$$
+  $$H(x)_i = {(x\cdot W_g)}_{i} + \text{StandardNormal()}\cdot\text{SoftPlus}((x\cdot W_{noise})_i),$$
 
   where $W$'s are trainable weigths and randomness aids load balancing.
   
