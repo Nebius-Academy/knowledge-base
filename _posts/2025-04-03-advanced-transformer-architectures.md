@@ -39,11 +39,9 @@ $$\mathrm{GELU}(x) = x\mathbb{P}\{\xi\leqslant x\} = x\Phi(X)$$
 
 where $\xi\sim\mathcal{N}(0, 1)$ and $\Phi$ is the cdf of a standard gaussian distribution.
 
-<center>
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png)
+![]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png)
 
 [Source](https://arxiv.org/pdf/1606.08415v5.pdf)
-</center>
     
 2. ****Swish****, introduced in [Searching for activation functions](https://arxiv.org/pdf/1710.05941.pdf), is as follows:
 
@@ -61,9 +59,7 @@ In this case, $\otimes$ stands for elementwise product. SwiGLU recalls a gating 
 
 Although this idea is about transformer block architecture as a whole, I'll make note of this concept in this section. This was suggested by the authors of [mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax) and later used in [PaLM](https://arxiv.org/pdf/2204.02311.pdf). In a typical transformer block, attention and MLP are arranged consequently, and this approach decouples them:
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/Swish.png)
-</center>
 
 Note the peculiar position of LayerNorm; you'll see more about this in the following section.
 
@@ -85,11 +81,9 @@ RMSNorm yields comparable performance against LayerNorm but shows superiority in
 
 Pre-normalization was introduced in [this paper](https://arxiv.org/pdf/2002.04745.pdf) and it suggests one, performing normalization before attention and before FFN (rather than after them); and two, running normalization in parallel to the residue stream:
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/pre-normalization.png)
 
 [Source](https://arxiv.org/pdf/2002.04745.pdf)
-</center>
 
 **Motivation**: the authors of that aforementioned paper show that, with Post-LN, the expected gradients of the parameters near the output layer are large. Therefore, the warm-up stage is needed at the beginning of the training process where the optimization starts with an extremely small learning rate. This is necessary because the optimization process can become unstable otherwise. For more details, check the theoretical analysis in the paper.
 
@@ -109,15 +103,11 @@ At this point, it's also good to note that there are, in a sense, two different 
 
 To understand what the attention mask is, let's recall how self-attention works:
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/usual_attention.png)
-</center>
 
 To prevent “looking into the future”, we need to zero all elements of $QK^T$ over the main diagonal (those with $i < j$). This can be done by elementwise multiplication on the $0-1$ matrix called \textbf{attention mask}:
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/attention_mask.png)
-</center>
 
 
 Here, $\otimes$ stands for the elementwise product. The final formula for the attention is as follows:
@@ -160,12 +150,9 @@ The complexity of the attention mechanism is one of the main bottlenecks in the 
 
 Most likely drawing inspiration from convolutional networks, sliding window attention suggests to consider only a fixed window around each token, thus making the computational cost linear on the context length.
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/sliding-window-attention.png)
 
 [Source](https://arxiv.org/pdf/2310.06825)
-</center>
-
 
 The upper layers receive information from a longer subsequence. As in convolutions, attention window can be dilated to make receptive field wider.
 
@@ -177,11 +164,9 @@ Even a single attention mechanism is costly, and going multi-head only makes it 
 
 The next step was suggested in [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/pdf/2305.13245.pdf), that is, having many value heads, which are grouped on several value and key heads:
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/group-query-attention.png)
 
 [Source](https://arxiv.org/pdf/2305.13245.pdf5)
-</center>
 
 Now we can return to Llama-3; if we look at this [technical report](https://arxiv.org/pdf/2407.21783), it shows that “Key/Value Heads” is 8. Given that there are 32 attention heads (=how many queries), we see that there are 4 query heads per key/value. Moreover, with the attention head dimension of 128, we may see that the dimensions of the total $W_Q$ and $W_K$ are $\text{hidden\_dim}\times(128\cdot 8) = 4096\times1024.$
 
@@ -193,9 +178,7 @@ Key-value caches are now a natural feature of almost every transformer model. Th
 
 The attention mechanism is cool, but it doesn't take into account token order. To add this information, the original transformer paper suggested using absolute positional encoding: this is a special vector for each position number $i$ that is added to the token embedding.
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-encoding.png)
-</center>
 
 In this section, we'll discuss how we can improve this mechanism.
 
@@ -207,9 +190,7 @@ Relative positional encoding was introduced by Google in [Self-Attention with Re
 
 First of all, let's change our view on positional embeddings; they are necessary to introduce information about positions into the attention mechanism, so let's consider them as details inside of this:
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embeddings-align.png)
-</center>
 
 Note that in the original transformer architecture, positional embeddings are indeed introduced into each attention layer due to residual connections. However, in modern architectures, this is no longer equivalent due to pre-normalization.
 
@@ -300,11 +281,9 @@ $$\theta_i = 10000^{-2(i-1)/d}$$
 
 **Long-term decay**. RoPE embeddings provide long-term decay property, which means the $q_mk_n^T$ will decay when the relative position increases. Take this illustration from the paper:
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png)
 
 [Source](https://arxiv.org/pdf/2104.09864v5.pdf)
-</center>
 
 **Linearized attention**. Actually, in the RoPE paper, the attention mechanism’s formulation is a bit peculiar, and it is inspired by the [Transformers are RNNs](https://arxiv.org/pdf/2006.16236.pdf) paper. Let's dive into it. The typical mechanism that operates with queries $q_n$, keys $k_n$ and values $v_n$ transforms values as follows:
 
@@ -348,11 +327,9 @@ The mixture of experts approach is featured in the [Mixtral model](https://huggi
 
 Mixtral has a similar architecture to Mistral 7B, but some of the Feedforward layers are replaced with a sparse MoE (Mixture of Experts) layer.
 
-<center>
 ![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/moe.png)
 
 [Source](https://huggingface.co/blog/moe)
-</center>
 
 Here’s what we have here: a gating function that decides which expert will receive the input $x$. It works as follows. 
 
@@ -399,10 +376,8 @@ In essence, a complex number is something of form $a + bi$, where $i$ is a phant
 
 - Complex numbers have a convenient interpretation as vectors of a two-dimensional plane:
 
-  <center>
   <![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/complex_numbers.png)
-  </center>
-    
+      
   And the sum of two complex numbers = the sum of their corresponding vectors.
     
 - The product of two complex numbers is, again, a complex number:
