@@ -2,6 +2,7 @@
 layout: post
 title: "Advanced Transformer Architectures in Modern LLMs"
 categories: blog
+permalink: /transformer-architectures/
 ---
 
 In this long read, we'll discuss some of the milestones of transformer architecture development, which has shaped how today's LLM are built.
