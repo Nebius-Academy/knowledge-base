@@ -190,7 +190,7 @@ Relative positional encoding was introduced by Google in [Self-Attention with Re
 
 First of all, let's change our view on positional embeddings; they are necessary to introduce information about positions into the attention mechanism, so let's consider them as details inside of this:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embedding-align.png){: style="width:100%;"}
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embedding-align.png){: style="width:75%;"}
 
 Note that in the original transformer architecture, positional embeddings are indeed introduced into each attention layer due to residual connections. However, in modern architectures, this is no longer equivalent due to pre-normalization.
 
@@ -281,7 +281,7 @@ $$\theta_i = 10000^{-2(i-1)/d}$$
 
 **Long-term decay**. RoPE embeddings provide long-term decay property, which means the $q_mk_n^T$ will decay when the relative position increases. Take this illustration from the paper:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png){: style="width:50%;"}
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png){: style="width:75%;"}
 
 [Source](https://arxiv.org/pdf/2104.09864v5.pdf)
 
