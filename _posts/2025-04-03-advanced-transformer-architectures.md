@@ -190,7 +190,7 @@ Relative positional encoding was introduced by Google in [Self-Attention with Re
 
 First of all, let's change our view on positional embeddings; they are necessary to introduce information about positions into the attention mechanism, so let's consider them as details inside of this:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embedding-align.png)
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embedding-align.png){: style="width:100%;"}
 
 Note that in the original transformer architecture, positional embeddings are indeed introduced into each attention layer due to residual connections. However, in modern architectures, this is no longer equivalent due to pre-normalization.
 
