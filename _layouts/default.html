@@ -46,7 +46,7 @@
       padding: 0 20px;
     }
     
-    /* Two-column layout for desktop */
+    /* Layout: two columns on desktop */
     .layout {
       display: flex;
       flex-wrap: nowrap;
@@ -54,23 +54,44 @@
       margin: 0 auto;
       padding: 0 20px;
     }
-    /* Sidebar (TOC) on the left */
-    .sidebar {
-      flex: 0 0 250px;
-      margin-right: 20px;
-      overflow-y: auto;
-      max-height: calc(100vh - 40px);
-      background: #f9f9f9;
-      border: 1px solid #ddd;
-      padding: 10px;
-    }
-    /* Main content area */
-    .content {
-      flex: 1;
-      min-width: 300px;
+    
+    /* Sidebar (TOC) styling on desktop */
+    @media (min-width: 601px) {
+      .sidebar {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        width: 250px;
+        height: calc(100vh - 40px);
+        overflow-y: auto;
+        background: #f9f9f9;
+        border: 1px solid #ddd;
+        padding: 10px;
+      }
+      /* Main content is pushed to the right of the sidebar */
+      .content {
+        margin-left: 290px; /* 250px (sidebar width) + 20px margin + extra spacing */
+      }
     }
     
-    /* TOC styling */
+    /* Mobile layout: stack columns */
+    @media (max-width: 600px) {
+      .layout {
+        flex-direction: column;
+      }
+      .sidebar {
+        position: static;
+        width: 100%;
+        margin-bottom: 20px;
+        height: auto;
+        overflow-y: visible;
+      }
+      .content {
+        margin-left: 0;
+      }
+    }
+    
+    /* TOC link styling */
     #toc a {
       color: black;
       font-weight: bold;
@@ -91,22 +112,8 @@
         width: var(--img-mobile, 80%);
       }
     }
-    
-    /* Mobile layout: stack columns and restore sidebar behavior */
-    @media (max-width: 600px) {
-      .layout {
-        flex-direction: column;
-      }
-      .sidebar {
-        margin-right: 0;
-        margin-bottom: 20px;
-        overflow-y: visible;
-        max-height: none;
-      }
-    }
   </style>
   <!-- End of Custom Styles -->
-
 </head>
 <body>
   <div class="layout">
@@ -129,7 +136,14 @@
       tocSelector: '#toc',           // Where to render the TOC
       contentSelector: '.container', // What content to scan for headings
       headingSelector: 'h1, h2, h3',   // Which heading levels to include
-      scrollSmooth: true
+      scrollSmooth: true,
+      filter: function(heading, index) {
+        // Exclude the first header if it's an h1 (assumed to be the page title)
+        if (index === 0 && heading.tagName.toLowerCase() === 'h1') {
+          return false;
+        }
+        return true;
+      }
     });
   </script>
 </body>
