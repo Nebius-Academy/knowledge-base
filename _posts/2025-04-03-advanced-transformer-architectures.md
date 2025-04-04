@@ -105,14 +105,14 @@ To understand what the attention mask is, let's recall how self-attention works:
 
 ![]({{ site.baseurl }}/assets/images/transformer-architectures/usual_attention.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
 
-To prevent “looking into the future”, we need to zero all elements of $QK^T$ over the main diagonal (those with $i < j$). This can be done by elementwise multiplication on the $0-1$ matrix called \textbf{attention mask}:
+To prevent “looking into the future”, we need to zero all elements of $QK^T$ over the main diagonal (those with $i < j$). This can be done by elementwise multiplication on the $0-1$ matrix called **attention mask**:
 
 ![]({{ site.baseurl }}/assets/images/transformer-architectures/attention_mask.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
 
 
 Here, $\otimes$ stands for the elementwise product. The final formula for the attention is as follows:
 
-$$o = \textbf{softmax}\left(\frac{M\otimes QK^T}{\sqrt{d}}\right)V$$
+$$o = \mathbf{softmax}\left(\frac{M\otimes QK^T}{\sqrt{d}}\right)V$$
 
 **Note**: It's not often mentioned, but in today's LLMs, the self-attention layer often has one additional operation:
 $y = oW_o$
@@ -219,7 +219,7 @@ $$(x, y)\mapsto (x, y)\cdot\begin{pmatrix}
 
 However, it’s cumbersome to write this matrix every time we need to rotate something. Luckily, we can use a shortcut:
 
-$$(x, y)\cdot e^{i_\varphi}\text{\textbf{ is the same as }}(x, y)\cdot\begin{pmatrix}
+$$(x, y)\cdot e^{i_\varphi}\text{\mathbf{ is the same as }}(x, y)\cdot\begin{pmatrix}
 \cos{\varphi} & \sin{\varphi}\\
 -\sin{\varphi} & \cos{\varphi}
 \end{pmatrix}$$
