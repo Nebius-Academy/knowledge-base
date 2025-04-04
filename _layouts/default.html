@@ -1,61 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ page.title }}</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page.title }}</title>
 
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
+  <!-- MathJax Configuration -->
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script type="text/javascript" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+  <!-- End of MathJax Configuration -->
 
-    <!-- MathJax Configuration -->
-    <script>
-        MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']]
-            },
-            svg: {
-                fontCache: 'global'
-            }
-        };
-    </script>
-    <script type="text/javascript" async
-      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-    </script>
-    <!-- End of MathJax Configuration -->
-
+  <!-- Custom Styles -->
+  <style>
+    /* Base typography */
+    body {
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+    p {
+      margin-bottom: 1.5em;
+    }
     
-
-    <!-- Custom Styles -->
-    <style>
-        /* Apply font style to the entire body */
-        body {
-            font-family: 'Inter', sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-        }
-
-        /* Set paragraph spacing */
-        p {
-            margin-bottom: 1.5em;
-        }
-        
-        .container {
-            max-width: 800px; 
-            width: 100%;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-    </style>
-    <!-- End of Custom Styles -->
-
+    /* Two-column layout for desktop */
+    .layout {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .content {
+      flex: 1;
+      min-width: 300px;
+    }
+    .sidebar {
+      flex: 0 0 250px;
+      margin-left: 20px;
+    }
+    /* TOC styling with sticky behavior */
+    #toc {
+      border: 1px solid #ddd;
+      padding: 10px;
+      background: #f9f9f9;
+      position: sticky;
+      top: 20px;
+    }
+    
+    /* Responsive image width using custom properties */
+    .responsive-image {
+      width: var(--img-desktop, 50%);
+      max-width: 100%;
+      height: auto;
+    }
+    @media (max-width: 600px) {
+      .responsive-image {
+        width: var(--img-mobile, 80%);
+      }
+    }
+    
+    /* Mobile layout: stack columns */
+    @media (max-width: 600px) {
+      .layout {
+        flex-direction: column;
+      }
+      .sidebar {
+        margin-left: 0;
+        position: static;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+    }
+  </style>
+  <!-- End of Custom Styles -->
 </head>
 <body>
-    <div class="container">
-        {{ content }}
+  <div class="layout">
+    <!-- Main content area -->
+    <div class="content">
+      {{ content }}
     </div>
+    <!-- Sidebar with Table of Contents -->
+    <div class="sidebar">
+      <div id="toc"></div>
+    </div>
+  </div>
+
+  <!-- tocbot: Table of Contents generator -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.11.1/tocbot.min.js"></script>
+  <script>
+    tocbot.init({
+      tocSelector: '#toc',          // Where to render the TOC
+      contentSelector: '.content',   // What content to scan for headings
+      headingSelector: 'h1, h2, h3',  // Which heading levels to include
+      scrollSmooth: true
+    });
+  </script>
 </body>
 </html>
