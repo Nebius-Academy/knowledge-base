@@ -34,6 +34,7 @@
       margin: 0;
       padding: 0;
     }
+    
     p {
       margin-bottom: 1.5em;
     }
@@ -113,24 +114,33 @@
       }
     }
     
-    /* Differentiated header styles within the content */
+    /* Enhanced header styles with more distinct differences */
     .content h1 {
-      font-size: 2em;
-      margin-top: 0.67em;
-      margin-bottom: 0.67em;
-      font-weight: bold;
+      font-size: 2.5em;
+      margin-top: 1.2em;
+      margin-bottom: 0.8em;
+      font-weight: 600;
+      color: #1a1a1a;
+      border-bottom: 2px solid #1a1a1a;
+      padding-bottom: 0.3em;
     }
+    
     .content h2 {
-      font-size: 1.75em;
-      margin-top: 0.75em;
-      margin-bottom: 0.75em;
-      font-weight: bold;
+      font-size: 1.8em;
+      margin-top: 1em;
+      margin-bottom: 0.7em;
+      font-weight: 600;
+      color: #2a2a2a;
+      border-bottom: 1px solid #e1e1e1;
+      padding-bottom: 0.2em;
     }
+    
     .content h3 {
-      font-size: 1.5em;
-      margin-top: 0.83em;
-      margin-bottom: 0.83em;
-      font-weight: bold;
+      font-size: 1.4em;
+      margin-top: 0.9em;
+      margin-bottom: 0.6em;
+      font-weight: 600;
+      color: #3a3a3a;
     }
   </style>
   <!-- End of Custom Styles -->
@@ -152,18 +162,18 @@
   <!-- tocbot: Table of Contents generator -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.11.1/tocbot.min.js"></script>
   <script>
-    var pageTitle = "{{ page.title }}";
+    // Get the page title from Jekyll
+    var pageTitle = document.querySelector('title').textContent;
+    
     tocbot.init({
-      tocSelector: '#toc',           // Where to render the TOC
-      contentSelector: '.container', // What content to scan for headings
-      headingSelector: 'h1, h2, h3',   // Which heading levels to include
+      tocSelector: '#toc',
+      contentSelector: '.container',
+      headingSelector: 'h1, h2, h3',
       scrollSmooth: true,
-      filter: function(heading, index) {
-        // Exclude headings that match the page title
-        if (heading.innerText.trim() === pageTitle.trim()) {
-          return false;
-        }
-        return true;
+      hasInnerContainers: true,
+      filter: function(heading) {
+        // Convert both strings to lowercase and trim for more robust comparison
+        return heading.textContent.toLowerCase().trim() !== pageTitle.toLowerCase().trim();
       }
     });
   </script>
