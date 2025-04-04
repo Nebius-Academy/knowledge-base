@@ -154,6 +154,7 @@
     <!-- Main content area -->
     <div class="content">
       <div class="container">
+        <h1 class="page-title">{{ page.title }}</h1>
         {{ content }}
       </div>
     </div>
@@ -165,16 +166,9 @@
     tocbot.init({
       tocSelector: '#toc',
       contentSelector: '.container',
-      headingSelector: 'h1, h2, h3',
+      headingSelector: 'h1:not(.page-title), h2, h3',  // Exclude .page-title class
       scrollSmooth: true,
-      hasInnerContainers: true,
-      filter: function(heading) {
-        // Get the raw Jekyll page title variable
-        var pageTitle = '{{ page.title }}';
-        // Compare with the heading text, both lowercased and trimmed
-        return heading.textContent.toLowerCase().trim() !== pageTitle.toLowerCase().trim();
-      },
-      orderedList: false
+      hasInnerContainers: true
     });
   </script>
 </body>
