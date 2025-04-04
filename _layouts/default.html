@@ -162,9 +162,6 @@
   <!-- tocbot: Table of Contents generator -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.11.1/tocbot.min.js"></script>
   <script>
-    // Get the page title from Jekyll
-    var pageTitle = document.querySelector('title').textContent;
-    
     tocbot.init({
       tocSelector: '#toc',
       contentSelector: '.container',
@@ -172,9 +169,12 @@
       scrollSmooth: true,
       hasInnerContainers: true,
       filter: function(heading) {
-        // Convert both strings to lowercase and trim for more robust comparison
+        // Get the raw Jekyll page title variable
+        var pageTitle = '{{ page.title }}';
+        // Compare with the heading text, both lowercased and trimmed
         return heading.textContent.toLowerCase().trim() !== pageTitle.toLowerCase().trim();
-      }
+      },
+      orderedList: false
     });
   </script>
 </body>
