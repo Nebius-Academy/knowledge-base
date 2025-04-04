@@ -55,7 +55,7 @@
       padding: 0 20px;
     }
     
-    /* Sidebar (TOC) styling on desktop */
+    /* Sidebar (TOC) on the left for desktop */
     @media (min-width: 601px) {
       .sidebar {
         position: fixed;
@@ -68,9 +68,9 @@
         border: 1px solid #ddd;
         padding: 10px;
       }
-      /* Main content is pushed to the right of the sidebar */
+      /* Main content pushed to the right */
       .content {
-        margin-left: 290px; /* 250px (sidebar width) + 20px margin + extra spacing */
+        margin-left: 290px;
       }
     }
     
@@ -112,6 +112,26 @@
         width: var(--img-mobile, 80%);
       }
     }
+    
+    /* Differentiated header styles within the content */
+    .content h1 {
+      font-size: 2em;
+      margin-top: 0.67em;
+      margin-bottom: 0.67em;
+      font-weight: bold;
+    }
+    .content h2 {
+      font-size: 1.75em;
+      margin-top: 0.75em;
+      margin-bottom: 0.75em;
+      font-weight: bold;
+    }
+    .content h3 {
+      font-size: 1.5em;
+      margin-top: 0.83em;
+      margin-bottom: 0.83em;
+      font-weight: bold;
+    }
   </style>
   <!-- End of Custom Styles -->
 </head>
@@ -132,14 +152,15 @@
   <!-- tocbot: Table of Contents generator -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.11.1/tocbot.min.js"></script>
   <script>
+    var pageTitle = "{{ page.title }}";
     tocbot.init({
       tocSelector: '#toc',           // Where to render the TOC
       contentSelector: '.container', // What content to scan for headings
       headingSelector: 'h1, h2, h3',   // Which heading levels to include
       scrollSmooth: true,
       filter: function(heading, index) {
-        // Exclude the first header if it's an h1 (assumed to be the page title)
-        if (index === 0 && heading.tagName.toLowerCase() === 'h1') {
+        // Exclude headings that match the page title
+        if (heading.innerText.trim() === pageTitle.trim()) {
           return false;
         }
         return true;
