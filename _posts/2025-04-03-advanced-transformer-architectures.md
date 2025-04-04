@@ -35,25 +35,25 @@ with some $a > 0$. However, several other functions proved to be more beneficial
 
 1. **GELU**, which was introduced in [this paper](https://arxiv.org/pdf/1606.08415v5.pdf), is
 
-$$\mathrm{GELU}(x) = x\mathbb{P}\{\xi\leqslant x\} = x\Phi(X)$$
+  $$\mathrm{GELU}(x) = x\mathbb{P}\{\xi\leqslant x\} = x\Phi(X)$$
 
-where $\xi\sim\mathcal{N}(0, 1)$ and $\Phi$ is the cdf of a standard gaussian distribution.
+  where $\xi\sim\mathcal{N}(0, 1)$ and $\Phi$ is the cdf of a standard gaussian distribution.
 
-![]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png){: style="width:50%;"}
+  ![]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png){: style="width:50%;"}
 
-[Source](https://arxiv.org/pdf/1606.08415v5.pdf)
+  [Source](https://arxiv.org/pdf/1606.08415v5.pdf)
     
 2. ****Swish****, introduced in [Searching for activation functions](https://arxiv.org/pdf/1710.05941.pdf), is as follows:
 
-$$\mathrm{Swish}(x) = x\cdot\sigma(\beta x)$$
+  $$\mathrm{Swish}(x) = x\cdot\sigma(\beta x)$$
     
   Here, $\beta$ is a parameter and $\sigma$ is the familiar sigmoid function. GELU can be approximated with Swish as $x\sigma(1.702x)$.
     
 3. **SwiGLU** was introduced in [GLU Variants Improve Transformer](https://arxiv.org/pdf/2002.05202v1.pdf). It's actually more than just a new activation, because it also adds third trainable weight matrix to the feedforward block:
 
-$$\mathrm{FFN}{\mathrm{SwiGLU}}(x, W_1, V, W_2) = (\mathrm{Swish}_{\beta=1}(xW_1) \otimes xV )W_2$$
+  $$\mathrm{FFN}{\mathrm{SwiGLU}}(x, W_1, V, W_2) = (\mathrm{Swish}_{\beta=1}(xW_1) \otimes xV )W_2$$
 
-In this case, $\otimes$ stands for elementwise product. SwiGLU recalls a gating mechanism from LSTMs: it's like $xV$ is the information we’re passing through and $\mathrm{Swish}_{\beta=1}(xW_1)$ controls how much of this information we want to pass through the FFN layer. Of course, it’s *exactly* like that (because Swish is not $\sigma$), but this may help getting an intuition for it.
+  In this case, $\otimes$ stands for elementwise product. SwiGLU recalls a gating mechanism from LSTMs: it's like $xV$ is the information we’re passing through and $\mathrm{Swish}_{\beta=1}(xW_1)$ controls how much of this information we want to pass through the FFN layer. Of course, it’s *exactly* like that (because Swish is not $\sigma$), but this may help getting an intuition for it.
 
 ## "Parallel" formulation
 
@@ -190,7 +190,7 @@ Relative positional encoding was introduced by Google in [Self-Attention with Re
 
 First of all, let's change our view on positional embeddings; they are necessary to introduce information about positions into the attention mechanism, so let's consider them as details inside of this:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embedding-align.png){: style="width:100%;"}
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embedding-align.png){: style="width:75%;"}
 
 Note that in the original transformer architecture, positional embeddings are indeed introduced into each attention layer due to residual connections. However, in modern architectures, this is no longer equivalent due to pre-normalization.
 
@@ -281,7 +281,7 @@ $$\theta_i = 10000^{-2(i-1)/d}$$
 
 **Long-term decay**. RoPE embeddings provide long-term decay property, which means the $q_mk_n^T$ will decay when the relative position increases. Take this illustration from the paper:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png){: style="width:50%;"}
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png){: style="width:75%;"}
 
 [Source](https://arxiv.org/pdf/2104.09864v5.pdf)
 
