@@ -39,7 +39,7 @@ $$\mathrm{GELU}(x) = x\mathbb{P}\{\xi\leqslant x\} = x\Phi(X)$$
 
 where $\xi\sim\mathcal{N}(0, 1)$ and $\Phi$ is the cdf of a standard gaussian distribution.
 
-![]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png)
+![]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png){: style="width:50%;"}
 
 [Source](https://arxiv.org/pdf/1606.08415v5.pdf)
     
@@ -59,7 +59,7 @@ In this case, $\otimes$ stands for elementwise product. SwiGLU recalls a gating 
 
 Although this idea is about transformer block architecture as a whole, I'll make note of this concept in this section. This was suggested by the authors of [mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax) and later used in [PaLM](https://arxiv.org/pdf/2204.02311.pdf). In a typical transformer block, attention and MLP are arranged consequently, and this approach decouples them:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/Swish.png)
+![]({{ site.baseurl }}/assets/images/transformer-architectures/Swish.png){: style="width:50%;"}
 
 Note the peculiar position of LayerNorm; you'll see more about this in the following section.
 
@@ -81,7 +81,7 @@ RMSNorm yields comparable performance against LayerNorm but shows superiority in
 
 Pre-normalization was introduced in [this paper](https://arxiv.org/pdf/2002.04745.pdf) and it suggests one, performing normalization before attention and before FFN (rather than after them); and two, running normalization in parallel to the residue stream:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/pre-normalization.png)
+![]({{ site.baseurl }}/assets/images/transformer-architectures/pre-normalization.png){: style="width:50%;"}
 
 [Source](https://arxiv.org/pdf/2002.04745.pdf)
 
@@ -103,11 +103,11 @@ At this point, it's also good to note that there are, in a sense, two different 
 
 To understand what the attention mask is, let's recall how self-attention works:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/usual_attention.png)
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/usual_attention.png){: style="width:100%;"}
 
 To prevent “looking into the future”, we need to zero all elements of $QK^T$ over the main diagonal (those with $i < j$). This can be done by elementwise multiplication on the $0-1$ matrix called \textbf{attention mask}:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/attention_mask.png)
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/attention_mask.png){: style="width:100%;"}
 
 
 Here, $\otimes$ stands for the elementwise product. The final formula for the attention is as follows:
@@ -164,7 +164,7 @@ Even a single attention mechanism is costly, and going multi-head only makes it 
 
 The next step was suggested in [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/pdf/2305.13245.pdf), that is, having many value heads, which are grouped on several value and key heads:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/group-query-attention.png)
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/group-query-attention.png){: style="width:75%;"}
 
 [Source](https://arxiv.org/pdf/2305.13245.pdf5)
 
@@ -190,7 +190,7 @@ Relative positional encoding was introduced by Google in [Self-Attention with Re
 
 First of all, let's change our view on positional embeddings; they are necessary to introduce information about positions into the attention mechanism, so let's consider them as details inside of this:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embeddings-align.png)
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/posit-embedding-align.png)
 
 Note that in the original transformer architecture, positional embeddings are indeed introduced into each attention layer due to residual connections. However, in modern architectures, this is no longer equivalent due to pre-normalization.
 
@@ -281,7 +281,7 @@ $$\theta_i = 10000^{-2(i-1)/d}$$
 
 **Long-term decay**. RoPE embeddings provide long-term decay property, which means the $q_mk_n^T$ will decay when the relative position increases. Take this illustration from the paper:
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png)
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/long-term-decay-of-rope.png){: style="width:50%;"}
 
 [Source](https://arxiv.org/pdf/2104.09864v5.pdf)
 
@@ -327,7 +327,7 @@ The mixture of experts approach is featured in the [Mixtral model](https://huggi
 
 Mixtral has a similar architecture to Mistral 7B, but some of the Feedforward layers are replaced with a sparse MoE (Mixture of Experts) layer.
 
-![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/moe.png)
+![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/moe.png){: style="width:100%;"}
 
 [Source](https://huggingface.co/blog/moe)
 
@@ -376,7 +376,7 @@ In essence, a complex number is something of form $a + bi$, where $i$ is a phant
 
 - Complex numbers have a convenient interpretation as vectors of a two-dimensional plane:
 
-  <![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/complex_numbers.png)
+  <![Alt text]({{ site.baseurl }}/assets/images/transformer-architectures/complex_numbers.png){: style="width:50%;"}
       
   And the sum of two complex numbers = the sum of their corresponding vectors.
     
