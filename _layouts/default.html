@@ -114,6 +114,11 @@
       }
     }
     
+    /* Skip TOC class */
+    .skip-toc {
+      /* Additional styles for the main title if needed */
+    }
+    
     /* Enhanced header styles with more distinct differences */
     .content h1 {
       font-size: 2.5em;
@@ -154,7 +159,6 @@
     <!-- Main content area -->
     <div class="content">
       <div class="container">
-        <h1 class="page-title">{{ page.title }}</h1>
         {{ content }}
       </div>
     </div>
@@ -163,12 +167,24 @@
   <!-- tocbot: Table of Contents generator -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.11.1/tocbot.min.js"></script>
   <script>
-    tocbot.init({
-      tocSelector: '#toc',
-      contentSelector: '.container',
-      headingSelector: 'h1:not(.page-title), h2, h3',  // Exclude .page-title class
-      scrollSmooth: true,
-      hasInnerContainers: true
+    // Wait for the DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Find and modify the first h1 if it matches the page title
+      var firstH1 = document.querySelector('.container h1');
+      if (firstH1) {
+        firstH1.classList.add('skip-toc');
+      }
+      
+      // Initialize tocbot
+      tocbot.init({
+        tocSelector: '#toc',
+        contentSelector: '.container',
+        headingSelector: 'h1:not(.skip-toc), h2, h3',
+        scrollSmooth: true,
+        hasInnerContainers: true,
+        collapseDepth: 6,
+        orderedList: true
+      });
     });
   </script>
 </body>
