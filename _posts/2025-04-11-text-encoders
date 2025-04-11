@@ -5,24 +5,20 @@ categories: blog
 permalink: /text-encoders/
 ---
 
-## Text encoders
-
-Text encoders are predominantly **encoder-only transformers**. We'll brieftly discuss them, without going too deep into architectural details.
+Text encoders are predominantly **encoder-only transformers**. We'll brieftly discuss how they are trained, without going too deep into architectural details. If you need an embedding model for your project, check the [Hugging Face embedding leaderboard](https://huggingface.co/spaces/mteb/leaderboard) to guide your decisions.
 
 The purpose of encoder-only models is to produce meaningful embeddings, and there are two notable ways of achieving it. Both of them are **self-supervised**, that is allow to train model on synthetic supervised tasks, without external labeling.
 
-**Strategy 1: synthetic classification tasks**
+## Strategy 1: synthetic classification tasks
 
 A famous example of this strategy is the [**BERT**](https://arxiv.org/abs/1810.04805) model, developed by Google. It was trained on two tasks:
 
 - *Masked Language Modeling*: prediction of masked tokens,
 - *Next Sentence Prediction*: checking whether two sentences could be together in a text.
 
-<center>
-<img src="https://drive.google.com/uc?export=view&id=1eF-TXl_oUpV3kxowfFokhdOCOwtFRh5S" width=600 />
+![]({{ site.baseurl }}/assets/images/text-encoders/bert-training.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
 
 [Source](https://arxiv.org/abs/1810.04805)
-</center>
 
 Further models were often trained for only Masked Language Modeling.
 
@@ -34,18 +30,31 @@ BERT had many descendants; the most recent of them is [ModernBERT](https://arxiv
 -	Flash attention,
 -	Three-step training on larger and larger context length to achieve long-context (160K tokens) performance.
 
+See the [LLM architecture](https://nebius-academy.github.io/knowledge-base/transformer-architectures/#) long read for more details about these features.
+
 BERT-like models are mostly popular as bases for fine-tuning for classification, regression and similar tasks. However, they can also be used as encoders in vector stores.
 
-**Strategy 2: directly establishing coherence between semantic similarity and geometric proximity**
+## Strategy 2: directly establishing coherence between semantic similarity and geometric proximity
 
 **Sentence transformer** models are trained exactly for that! As an example, let's look at how the seminal [**Sentence-BERT** (**SBERT**)](https://arxiv.org/pdf/1908.10084) was trained. Architecturally, it's just a BERT model with pooling on top of it. The two instances of the BERT are shown in red boxes:
 
-<center>
-<img src="https://drive.google.com/uc?export=view&id=1Q0lXAx4vsdmmT2S3bY5pk21USesvJfoo" width=400 />
+![]({{ site.baseurl }}/assets/images/text-encoders/sbert-training.png){: .responsive-image style="--img-desktop:40%; --img-mobile:90%;"}
 
 [Source](https://arxiv.org/pdf/1908.10084)
-</center>
 
-SBERT was trained using two Natural Language Inference (NLI) datasets, SNLI and MultiNLI which contain sentence pairs labeled as contradiction, entailment (the logical consequence), or neutral. Here are some examples:
+SBERT was trained using two Natural Language Inference (NLI) datasets, [SNLI](https://aclanthology.org/D15-1075.pdf) and [MultiNLI](https://aclanthology.org/N18-1101.pdf) which contain sentence pairs labeled as contradiction, entailment (the logical consequence), or neutral. Here are some examples:
 
-https://drive.google.com/file/d/1btM9yo5eYPWkIJaA_U6NplS7xRNk6Tyt/view?usp=sharing
+![]({{ site.baseurl }}/assets/images/text-encoders/nli-dataset-example.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+
+[Source](https://aclanthology.org/D15-1075.pdf)
+
+The sentence pairs (Sentence A, Sentence B) are classified in the following way:
+
+1. First, we take two sentences and pass them through SBERT, which is a combination of BERT and a pooling layer. This process gives us two vector embeddings, let's call them **u** and **v**.
+2. Next, we combine these two vectors, **u** and **v**, along with their elementwise absolute difference, which is written as **|u - v|**. This helps us capture the differences between the two sentences.
+3. Then, we take this combined vector **[u, v, |u - v|]** and multiply it by a weight matrix **W**. This step transforms our combined vector into a new vector of length 3, representing the logits for our three classes: contradiction, entailment, and neutral.
+4. Finally, we apply a **softmax** function to this new vector to obtain the probabilities.
+
+## Strategy 3: contrastive training
+
+
