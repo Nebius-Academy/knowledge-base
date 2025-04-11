@@ -101,6 +101,23 @@ Furthermore, In-Context Learning (that is, few-shot examples) may be used to ste
 
 [Source](https://arxiv.org/pdf/2409.15700)
 
+As [GRIT](https://arxiv.org/pdf/2402.09906) demonstrates us, one can even train a model to work as *both* and LLM and an embedding provider:
+
+![]({{ site.baseurl }}/assets/images/text-encoders/grit-generation.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
+
+[Source](https://arxiv.org/pdf/2402.09906)
+
+Of course, apart from different prompts, generation and embedding scenarios require
+
+- Different attention pattern: bidirectional for the encoder scenario and causal ("never look into the future") for the generation scenario
+- Different output extraction: pooling of final embeddings for the encoder scenario and token prediction with LM head for the generation scenario
+
+![]({{ site.baseurl }}/assets/images/text-encoders/grit-attention.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
+
+[Source](https://arxiv.org/pdf/2402.09906)
+
+---
+
 As for April 11, 2025, Nebius AI Studio serves several LLM-based encoders:
 
 * `BAAI/bge-multilingual-gemma2` and `BAAI/bge-en-icl` based on the principles from [Making Text Embeddings Few Shot Learners](https://arxiv.org/pdf/2409.15700)
