@@ -1,0 +1,51 @@
+---
+layout: post
+title: "Text Encoders"
+categories: blog
+permalink: /text-encoders/
+---
+
+## Text encoders
+
+Text encoders are predominantly **encoder-only transformers**. We'll brieftly discuss them, without going too deep into architectural details.
+
+The purpose of encoder-only models is to produce meaningful embeddings, and there are two notable ways of achieving it. Both of them are **self-supervised**, that is allow to train model on synthetic supervised tasks, without external labeling.
+
+**Strategy 1: synthetic classification tasks**
+
+A famous example of this strategy is the [**BERT**](https://arxiv.org/abs/1810.04805) model, developed by Google. It was trained on two tasks:
+
+- *Masked Language Modeling*: prediction of masked tokens,
+- *Next Sentence Prediction*: checking whether two sentences could be together in a text.
+
+<center>
+<img src="https://drive.google.com/uc?export=view&id=1eF-TXl_oUpV3kxowfFokhdOCOwtFRh5S" width=600 />
+
+[Source](https://arxiv.org/abs/1810.04805)
+</center>
+
+Further models were often trained for only Masked Language Modeling.
+
+BERT had many descendants; the most recent of them is [ModernBERT](https://arxiv.org/pdf/2412.13663) published in December 2024, which adopted many architectural novelties used in recent LLMs such as
+
+-	Removal of bias terms in all linear layers except for the final unembedding layer,
+-	Fancy GeGLU activations,
+-	Rotary positional embeddings,
+-	Flash attention,
+-	Three-step training on larger and larger context length to achieve long-context (160K tokens) performance.
+
+BERT-like models are mostly popular as bases for fine-tuning for classification, regression and similar tasks. However, they can also be used as encoders in vector stores.
+
+**Strategy 2: directly establishing coherence between semantic similarity and geometric proximity**
+
+**Sentence transformer** models are trained exactly for that! As an example, let's look at how the seminal [**Sentence-BERT** (**SBERT**)](https://arxiv.org/pdf/1908.10084) was trained. Architecturally, it's just a BERT model with pooling on top of it. The two instances of the BERT are shown in red boxes:
+
+<center>
+<img src="https://drive.google.com/uc?export=view&id=1Q0lXAx4vsdmmT2S3bY5pk21USesvJfoo" width=400 />
+
+[Source](https://arxiv.org/pdf/1908.10084)
+</center>
+
+SBERT was trained using two Natural Language Inference (NLI) datasets, SNLI and MultiNLI which contain sentence pairs labeled as contradiction, entailment (the logical consequence), or neutral. Here are some examples:
+
+https://drive.google.com/file/d/1btM9yo5eYPWkIJaA_U6NplS7xRNk6Tyt/view?usp=sharing
