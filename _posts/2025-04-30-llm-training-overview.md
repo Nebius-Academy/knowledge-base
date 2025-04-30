@@ -58,9 +58,9 @@ We'll discuss the LM head and the softmax function in the [LLM Inference Paramet
 
 The goal during training is to ensure that the right tokens will get the maximal probability. In the example below, we want
 
-* $\widehat{p}(\text{``Luke''}|\langle\text{BOS}\rangle)$ be the maximal among all $\widehat{p}(w|\langle\text{BOS}\rangle)$,
-* $\widehat{p}(\text{``,''}|\text{``Luke''})$ be the maximal among all $\widehat{p}(w|\text{``Luke''})$,
-* $\widehat{p}(\text{``I''}|\text{``Luke,''})$ be the maximal among all $\widehat{p}(w|\text{``Luke,''})$,
+* $\widehat{p}(\text{``Luke''}\vert\langle\text{BOS}\rangle)$ be the maximal among all $\widehat{p}(w\vert\langle\text{BOS}\rangle)$,
+* $\widehat{p}(\text{``,''}\vert\text{``Luke''})$ be the maximal among all $\widehat{p}(w\vert\text{``Luke''})$,
+* $\widehat{p}(\text{``I''}\vert\text{``Luke,''})$ be the maximal among all $\widehat{p}(w\vert\text{``Luke,''})$,
 * etc.
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/LM-training-simple.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
@@ -157,3 +157,7 @@ For research institutions the workaround has always been generating `(instructio
 SFT uses the same **cross-entropy loss** as pre-training does. The only difference is that it's only evaluated for the solution. (Because we teach the LLM to produce correct solutions, not correct instructions.) Mathematically, if we denote an instruction as $u_{1:Q}$ and a response as $v_{1:L}$, then the loss is:
 
 $$\mathcal{L} = \sum_{(u, v)}\sum_{k=1}^{L-1}\sum_{w}p_{\mathrm{true}}(w|u_{1:Q}v_{1:k})\cdot \log\widehat{p}(w|u_{1:Q}v_{1:k})$$
+
+# RLHF
+
+Let's try this: $\widehat{p}(w\vert\text{"Luke,"})$
