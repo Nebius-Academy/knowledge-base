@@ -21,92 +21,109 @@ This discussion will be continued in the subsequent
 * The math of RHLF, DPO, and Reasoning training (will be available later)
 * Multimodal LLMs architectures and training (will be available later)
 
+In this long read, we'll leave the questions of LLM architecture under the hood, but we'll return to them in Topic 3.
+
 Before reading, please check the [Topic 1 notebook about tokenization](https://colab.research.google.com/github/Nebius-Academy/LLM-Engineering-Essentials/blob/main/topic1/1.2_tokenization.ipynb).
 
 # Pre-training
 
-Despite their formidable capabilites, LLMs do a very simple thing: given a sequence of tokens, they **predict the next token**. By iterating this 
+Despite their formidable capabilites, LLMs do a very simple thing: given a sequence of tokens, they **predict the next token**. By iterating this procedure, the model completes the prompt, generating new tokens until the special `<EOS>` (End Of Sequence) token is produced or `max_tokens` is reached.
 
-To train an LLM for the task of next token prediction, you only need a large selection of texts. Once you have that, you'll need to take each prefix (that is, the starting subsequences) within every text and train the LLM to predict the next token. And there's no need to label anything – just scrape the internet and be happy!
+![]({{ site.baseurl }}/assets/images/llm-training-overview/LM-working-simple.gif){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
 
-Well, there are a few catches to note:
+To train an LLM for next token prediction, you start with a large corpus of texts. The process works as follows.
+
+For each text in the training data, the LLM processes the input by
+
+* First converting each token into a vector **embedding**.
+* These embeddings are then transformed through multiple neural network layers, ultimately producing **final vector representations** for each token position.
+* From these final representations, we apply the **LM head** (Language Modeling Head), also known as the **unembedding layer**. It projects the vectors back into vocabulary space, making up **logits** $l_w$ for each token $w$ from the vocabulary.
+* The **softmax function** is then applied to convert these logits into **next token probabilities** $\widehat{p}(w)$ for every token $w$ in the vocabulary.
+
+For example, when processing the phrase `"London is famous for"`, the model produces 
+
+* the predicted probabilities $\widehat{p}(w|\text{<BOS>})$ for all tokens as potential phrase starters
+* the predicted probabilities $\widehat{p}(w|\text{"London"})$ for all tokens as potential continuations of `"London"`
+* the predicted probabilities $\widehat{p}(w|\text{"London is"})$ for all tokens as potential continuations of `"London is"`
+* etc,
+
+![]({{ site.baseurl }}/assets/images/llm-training-overview/llm-pretraining-produce1.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+
+We'll discuss the LM head and the softmax function in the [LLM Inference Parameters notebook](https://colab.research.google.com/github/Nebius-Academy/LLM-Engineering-Essentials/blob/main/topic1/1.6_llm_inference_parameters.ipynb).
+
+The goal during training is to ensure that the right tokens will get the maximal probability. In the example below, we want
+
+* $\widehat{p}(\text{"Luke"}|\text{<BOS>})$ be the maximal among all $\widehat{p}(w|\text{<BOS>})$,
+* $\widehat{p}(\text{","}|\text{"Luke"})$ be the maximal among all $\widehat{p}(w|\text{"Luke"})$,
+* $\widehat{p}(\text{"I"}|\text{"Luke,"})$ be the maximal among all $\widehat{p}(w|\text{"Luke,"})$,
+* etc.
+
+![]({{ site.baseurl }}/assets/images/llm-training-overview/LM-training-simple.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+
+For a token sequence $v_{1:L} = v_1v_2\ldots v_L$ from the training data, we may formulate this as an optimization problem:
+
+$$
+\begin{aligned}
+\widehat{p}(v_2|v_1)&\to\max\\
+\widehat{p}(v_3|v_{1:2})&\to\max\\
+\widehat{p}(v_4|v_{1:3})&\to\max\\
+&\ldots
+\end{aligned}
+$$
+
+Now, we'll apply logarithm, which is monotonic, that is for $x > 0$ $x\to\max$ is the same as $\log{x}\to\max$. Luckily, the predicted probabilities are non-negative, and they are unlikely to be exactly zero thanks to floating-point computation issues. We thus get
+
+$$
+\begin{aligned}
+\log\widehat{p}(v_2|v_1)&\to\max\\
+\log\widehat{p}(v_3|v_{1:2})&\to\max\\
+\log\widehat{p}(v_4|v_{1:3})&\to\max\\
+&\ldots
+\end{aligned}
+$$
+
+There are several potential reasons to this move; right now we'll state that it is beneficial for the optimization process. Indeed, logarithm "punishes" $\widehat{p}(w|p_{1:k})$ much more severely for being small (close to zero).
+
+![]({{ site.baseurl }}/assets/images/llm-training-overview/log-vs-linear.png){: .responsive-image style="--img-desktop:40%; --img-mobile:75%;"}
+
+Next, loss functions in Machine Learning are usually minimized, not maximized. So, we'll change the signs:
+
+$$
+\begin{aligned}
+-\log\widehat{p}(v_2|v_1)&\to\min\\
+-\log\widehat{p}(v_3|v_{1:2})&\to\min\\
+-\log\widehat{p}(v_4|v_{1:3})&\to\min\\
+&\ldots
+\end{aligned}
+$$
+
+This is usually formulated in a more mathematically fancy way. Let's introduce the distribution 
+$$p_{\mathrm{true}}(w|v_{1:k}) = \begin{cases}
+1,\text{ if }w=v_{k+1},\\
+0,\text{ otherwise}
+\end{cases}$$
+Then
+$$\widehat{p}(v_{k+1}|v_{1:k}) = \sum_{w}p_{\mathrm{true}}(w|v_{1:k})\cdot \log\widehat{p}(w|v_{1:k})$$
+Indeed, in the right hand side only one summand in nonzero - the one with $w = v_{k+1}$.
+
+Finally, let's get all the things we want to minimize into one large sum - first along the sequence $v_{1:L}$, and then across all the sequences from the training dataset (or, rather, the current training batch). This way we'll get the final pre-training **loss function**:
+
+$$\mathcal{L} = \sum_v\sum_{k=1}^{L-1}\sum_{w}p_{\mathrm{true}}(w|v_{1:k})\cdot \log\widehat{p}(w|v_{1:k})$$
+
+Now you know the pre-training basics! Still, there are a few catches to note:
 
 - The collection of texts should be really, really huge. In fact, the amount of data that today's LLMs consume for training is something like the entirety of the internet itself. And there are signs that, soon enough, the available web data will no longer be enough to satiate the growing appetites of LLMs. For more, see the following picture taken from the paper [Will we run out of data?](https://arxiv.org/pdf/2211.04325).
 
 ![running-out-of-data.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/09f89c11-43ed-47d0-9cb3-737d1bc3ebab/running-out-of-data.png)
 
-- These things shouldn't really be used for training purposes, but allegedly, in some cases, they are anyway: copyrighted books, private chats from social networks, and many, many more. Some of them still leak somehow and contribute to the controversy around LLMs. See [this article](https://www.businessinsider.com/openais-latest-chatgpt-version-hides-training-on-copyrighted-material-2023-8?utm_source=reddit.com&r=US&IR=T) for an example. In any case, by and large, this means some portion of data is effectively excluded from training.
-- You probably already know the principle of "Garbage in, garbage out". And indeed, training on low-quality data (noisy, irrelevant, and so on) may lead to poor quality results with the final model. Of course, with LLMs, the amount of training data needed is usually so huge that even raw internet dumps can contain enough useful information to produce a model of decent quality. With that being said, cleaner, high-quality data can allow LLMs to achieve more, and this is especially true for smaller LLMs. (We'll discuss this further in the section on Scaling Laws.)
+- You probably already know the principle of "Garbage in, garbage out". For LLMs, it may probably be reformulated as "Treasure in, treasure out". And indeed, the best LLMs are known to be trained on high-quality, carefully curated data.
 
-## Tokenization
+- The previous consideration is especially important, because **most of the LLM capabilities are established at the pre-training stage**, due to the amount of data used at this stage. (We'll show the comparison later in this long read.) Some of these capabilities might remain dormant, like [in the case of long reasoning](https://colab.research.google.com/github/Nebius-Academy/LLM-Engineering-Essentials/blob/main/topic2/r.3_establishing_non_linear_reasoning.ipynb), but in any case on the later training stages they are rather avakened then established anew.
 
-As we've already discussed, a text is split into **tokens** before being fed to an LLM. The splitting process is known as **tokenization**, and the tool that performs it is called a **tokenizer**. There are many tokenization strategies and the two simplest are **word-level tokenization** (each word is a token) and **character-level tokenization** (each character is a token).
+- Many of today's LLMs can work with large context lengths, and this is also established at the pre-training phase. But LLMs are not trained on 100k-long sequences from the very beginning, because that would be too taxing from the computations perspective. (Transformers' time and memory consumption grow as square of the input sequence length.) In most cases, **progressive length training** is used.
 
-Before we discuss the pros and cons of these two strategies, let's understand what we want out of an ideal tokenization; in short, we need the size of our vocabulary (that is, the list of all the individual tokens) to be balanced.
+  At first, the LLM might be trained on up to 8k-token-long sequences, and this would be the most intensive training part, using more than half training tokens. After that, the LLM is trained for several more stages on gradually longer sequences, e.g. 16k $\to$ 32k $\to$ 128k.
 
-- The vocabulary shouldn't be too large. Indeed, with each token we need to store its embedding vector and too many embedding vectors will clog our GPU memory. Further, it's also not so good if the ratio of the LLM parameters concentrated in your embedding layer is too high. Ideally, a vocabulary should contain a prescribed number of tokens (like 10K or 50K).
-- The items in the vocabulary should be meaningful, otherwise an LLM will struggle to make sense of them.
 
-Incidentally, that second reason explains why character-level tokenization is not good. Moving on a bit, with word-level tokenization, the main problem is that you can't get an exhaustive list of all the words in the universe. Thus, during the inference stage, your LLM will always encounter new slang, new typos, and new languages which it hasn't seen during training.
 
-So, we actually need something that is in between characters and words: **subword units**.
-
-A very popular type of subword tokenization is **BPE** (**Byte pair encoding**). The idea is the following:
-
-- We define the target vocabulary size {formula}N{/formula} (the number of tokens we want).
-- We initialize the list of tokens with the characters that are present in the training corpus.
-- We find the most frequent token pair in the training corpus and add it to the list of tokens (and we repeat this step) until we get {formula}N{/formula} tokens.
-
-<aside>
-📌
-
-Here's an example:
-
-Imagine our text corpus is `["low", "lower", "lowest"]` and the target vocabulary size is {formula}10{/formula}.
-
-We start with `vocab = [#l, #o, #w, #e, #r, #s, #t]`. (We've added `#` symbols to differentiate the BPE tokens from the characters and words.) Then, we continue with the iterations:
-
-1. The most frequent token pairs now are `lo = #l + # o` and `ow = # o + # w`, both a frequency of {formula}3{/formula}. Somehow, we need to choose one of them. I would say that `#lo` is earlier in the lexicographic order, so we'll take that one:
-    
-    `vocab = [#l, #o, #w, #e, #r, #s, #t, #lo]`
-    
-    Note that `low` is now tokenized as `#lo + #w`.
-    
-2. The most frequent token pair is now `low = #lo + #w` with a frequency of {formula}3{/formula}. Note that there is no longer `ow = #o + #w` because `low` no longer has the `#o` token.
-    
-    `vocab = [#l, #o, #w, #e, #r, #s, #t, #lo, #low]`
-    
-3. Now, the most frequent token pair is `lowe = #low + #e`, with a frequency of {formula}2{/formula}. Let's add it:
-    
-    `vocab = [#l, #o, #w, #e, #r, #s, #t, #lo, #low, #lowe]`
-    
-    Since we've reached the vocabulary size {formula}10{/formula}, we can stop now.
-    
-
-The final tokenization of our corpus is as follows:
-
-`low = #low`
-
-`lower = #lowe #r`
-
-`lowest = #lowe #s #t`
-
-</aside>
-
-**Note 1**: The original BPE algorithm only allowed token merging inside words, but later approaches can sometimes allow this: For example, an LLM can have `import pandas as pd` as one token.
-
-**Note 2**: BPE is frequency-based, so words and subwords originating from languages that are not as widespread as English may be mercilessly cut into pieces, potentially damaging the LLM's multilingual proficiency. With this in mind, some LLM creators spend additional effort to ensure a more equal representation of different languages and writing systems in the vocabulary.
-
-**Note 3**: Even listing all the characters to start BPE can be tough. There are many writing systems in the world, and moreover, there are emoji and other unicode characters to contend with. But still, being able to process emoji could be cool.
-
-To cope with this, LLM creators now often use **byte-level** tokenization on raw unicode bits. This sometimes produces non-interpretable tokens but allows us not to think about the diversity of writing systems.
-
-(**Practical note**: Every LLM has its own tokenizer, and it's a bad idea to try one LLM's tokenizer with another's. We'll learn to load the right tokenizers in Week 3.)
-
-## Measuring dataset length in tokens
-
-When you read papers about LLMs, you often encounter things like "We've trained the model on 1T (one trillion) tokens". Let's figure out what this means.
-
-First of all, training dataset sizes are indeed measured in tokens. So, the passage above says that the total number of tokens in all the texts in the dataset is around one trillion ({formula}10^{12}{/formula}). To understand how huge this number is, imagine that the "Lord of the Rings" has 500-700K tokens (that is, thousands of them) depending on the tokenizer used. So, 1T tokens is like 2 million "Lord of the Rings"! And yes, 1T tokens represents a scale approximately in line with the number a modern LLM may consume during pre-training.
-
-Now, you might ask: how many epochs do they train an LLM on a dataset of this size? You'll probably be surprised, but in most cases, the training only goes on for just one epoch. Partially, this is because of the dataset size and the amount of GPU hours that would be needed for even one pass through 1T tokens. Beyond that though, it also just turns out to be sufficient. That said, there is research that shows that multi-epoch training is also beneficial for LLMs and that training for four epochs may give the same result as training twice on unique data. This is good because, as we saw earlier, we may soon be running low on new data. We'll discuss this in more detail when we talk about scaling laws.
+- 
