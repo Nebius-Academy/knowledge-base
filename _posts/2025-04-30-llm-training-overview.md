@@ -15,6 +15,9 @@ In this long read, we'll explore the fundamental stages of Large Language Model 
 
 3. **Alignment training** - the optimization stage focused on making the model helpful and harmless by implementing safeguards and ensuring that the model is an agreeable conversationalist
 
+![]({{ site.baseurl }}/assets/images/llm-training-overview/gpt-assistant-training-pipeline.jpeg){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+
+
 This discussion will be continued in the subsequent 
 
 * [**Establishing long reasoning capabilities**](https://colab.research.google.com/github/Nebius-Academy/LLM-Engineering-Essentials/blob/main/topic2/r.3_establishing_non_linear_reasoning.ipynb), the colab notebook telling the story of the emergence of DeepSeek R1 and other long reasoning LLMs
@@ -30,6 +33,8 @@ Before reading, please check the [Topic 1 notebook about tokenization](https://c
 Despite their formidable capabilites, LLMs do a very simple thing: given a sequence of tokens, they **predict the next token**. By iterating this procedure, the model completes the prompt, generating new tokens until the special `<EOS>` (End Of Sequence) token is produced or `max_tokens` is reached.
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/LM-working-simple.gif){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
+
+**Pre-training** trains the LLM to be a good next token predictor. A pre-trained model is often referred to as a **base model**.
 
 To train an LLM for next token prediction, you start with a large corpus of texts. The process works as follows.
 
@@ -113,9 +118,13 @@ Finally, let's get all the things we want to minimize into one large sum - first
 
 $$\mathcal{L} = \sum_v\sum_{k=1}^{L-1}\sum_{w}p_{\mathrm{true}}(w|v_{1:k})\cdot \log\widehat{p}(w|v_{1:k})$$
 
+This function, known as **cross-entropy loss**, is widely used for multiclass classification problems. And it's not surprising that we see it here, because, in a sense, all LLMs are just classifiers of tokens.
+
 Now you know the pre-training basics! Still, there are a few catches to note:
 
-- The collection of texts should be really, really huge. In fact, the amount of data that today's LLMs consume for training is something like the entirety of the internet itself. And there are signs that, soon enough, the available web data will no longer be enough to satiate the growing appetites of LLMs. For more, see the following picture taken from the paper [Will we run out of data?](https://arxiv.org/pdf/2211.04325).
+- The collection of texts should be really, really huge. A dataset totalling to around 1T (a trillion) tokens might be used for pre-training a large LLM.
+  
+  In fact, the amount of data that today's LLMs consume for training is something like the entirety of the internet itself. And there are signs that, soon enough, the available web data will no longer be enough to satiate the growing appetites of LLMs. For more, see the following picture taken from the paper [Will we run out of data?](https://arxiv.org/pdf/2211.04325).
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/running-out-of-data.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
 
@@ -126,3 +135,25 @@ Now you know the pre-training basics! Still, there are a few catches to note:
 - Many of today's LLMs can work with large context lengths, and this is also established at the pre-training phase. But LLMs are not trained on 100k-long sequences from the very beginning, because that would be too taxing from the computations perspective. (Transformers' time and memory consumption grow as square of the input sequence length.) In most cases, **progressive length training** is used.
 
   At first, the LLM might be trained on up to 8k-token-long sequences, and this would be the most intensive training part, using more than half training tokens. After that, the LLM is trained for several more stages on gradually longer sequences, e.g. 16k $\to$ 32k $\to$ 128k.
+
+# Instruction tuning
+
+First, let's get some context. After pre-training, an LLM is able to continue a sentence in a plausible way, but it's not how we really want to work with LLMs.
+
+For example, take this prompt: "Generate a fairy tale about Python and C++." There are many possible continuations for this phrase which might feature perfectly valid English, but which are really not very helpful anyway. Such examples include:
+
+- "Sure, I'll do it next week."
+- "Then, generate another fairy tale about Rust and Ruby."
+- "Alice said, and asked for another cup of tea."
+
+Today's base models, trained on high-quality data collections, are unlikely to fall into this trap. But more complex instructions may still leave them dumbfounded. So, to *awaken* the instruction-following capability, **Supervised fine tuning** (**SFT**) is employed. Due to importance of this LLM training stage, the very term "supervised fine tuning", a much broader one, came to be often used as a synonym of Instruction tuning.
+ 
+For SFT, we need a dataset of `(instruction, solution)` pairs. The good news is that we don't need as much tokens as at the pre-trained stage! After pre-training the instruction-following capabilities are likely already present in the LLM, though maybe in a latent state, and we only need to awaken them. And for that, it's sufficient to get 10-100K `(instruction, solution)` pairs. Unfortunately, this is still a large number, and the bad news is that these pairs should be high-quality, otherwise we'll find ourselves in a "garbage out" situation.
+
+There are two main strategies for getting these tokens. Rich companies, like OpenAI, or Google, or Meta, are able to hire many experts who manually write a diverse selection of high-quality instructions: from math problems to the creation of fairy tales.
+
+For research institutions the workaround has always been generating `(instruction, solution)` with some large LLM. This way, the "teacher" LLM's capabilities are partially absorbed by the "student" LLM in the process known as **knowledge distillation**. (Knowledge distillation might be used at the pre-training stage as well.)
+
+SFT uses the same **cross-entropy loss** as pre-training does. The only difference is that it's only evaluated for the solution. (Because we teach the LLM to produce correct solutions, not correct instructions.) Mathematically, if we denote an instruction as $u_{1:Q}$ and a response as $v_{1:L}$, then the loss is:
+
+$$\mathcal{L} = \sum_{(u, v)}\sum_{k=1}^{L-1}\sum_{w}p_{\mathrm{true}}(w|u_{1:Q}v_{1:k})\cdot \log\widehat{p}(w|u_{1:Q}v_{1:k})$$
