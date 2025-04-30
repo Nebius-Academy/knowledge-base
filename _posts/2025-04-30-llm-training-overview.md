@@ -48,8 +48,8 @@ For each text in the training data, the LLM processes the input by
 For example, when processing the phrase `"London is famous for"`, the model produces 
 
 * the predicted probabilities $\widehat{p}(w\vert \langle\text{BOS}\rangle)$ for all tokens as potential phrase starters
-* the predicted probabilities $\widehat{p}(w\vert \text{``London''})$ for all tokens as potential continuations of `"London"`
-* the predicted probabilities $\widehat{p}(w\vert \text{``London is''})$ for all tokens as potential continuations of `"London is"`
+* the predicted probabilities $\widehat{p}(w\vert \text{"London"})$ for all tokens as potential continuations of `"London"`
+* the predicted probabilities $\widehat{p}(w\vert \text{"London is"})$ for all tokens as potential continuations of `"London is"`
 * etc,
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/llm-pretraining-produce1.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
@@ -58,9 +58,9 @@ We'll discuss the LM head and the softmax function in the [LLM Inference Paramet
 
 The goal during training is to ensure that the right tokens will get the maximal probability. In the example below, we want
 
-* $\widehat{p}(\text{``Luke''}\vert\langle\text{BOS}\rangle)$ be the maximal among all $\widehat{p}(w\vert\langle\text{BOS}\rangle)$,
-* $\widehat{p}(\text{``,''}\vert\text{``Luke''})$ be the maximal among all $\widehat{p}(w\vert\text{``Luke''})$,
-* $\widehat{p}(\text{``I''}\vert\text{``Luke,''})$ be the maximal among all $\widehat{p}(w\vert\text{``Luke,''})$,
+* $\widehat{p}(\text{"Luke"}\vert\langle\text{BOS}\rangle)$ be the maximal among all $\widehat{p}(w\vert\langle\text{BOS}\rangle)$,
+* $\widehat{p}(\text{","}\vert\text{"Luke"})$ be the maximal among all $\widehat{p}(w\vert\text{"Luke"})$,
+* $\widehat{p}(\text{"I"}\vert\text{"Luke,"})$ be the maximal among all $\widehat{p}(w\vert\text{"Luke,"})$,
 * etc.
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/LM-training-simple.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
@@ -103,6 +103,7 @@ $$
 $$
 
 This is usually formulated in a more mathematically fancy way. Let's introduce the distribution 
+
 $$p_{\mathrm{true}}(w|v_{1:k}) = \begin{cases}
 1,\text{ if }w=v_{k+1},\\
 0,\text{ otherwise}
