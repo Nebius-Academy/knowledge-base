@@ -42,9 +42,9 @@ For each text in the training data, the LLM processes the input by
 
 For example, when processing the phrase `"London is famous for"`, the model produces 
 
-* the predicted probabilities $\widehat{p}(w|\text{<BOS>})$ for all tokens as potential phrase starters
-* the predicted probabilities $\widehat{p}(w|\text{"London"})$ for all tokens as potential continuations of `"London"`
-* the predicted probabilities $\widehat{p}(w|\text{"London is"})$ for all tokens as potential continuations of `"London is"`
+* the predicted probabilities $\widehat{p}(w\vert \text{<BOS>})$ for all tokens as potential phrase starters
+* the predicted probabilities $\widehat{p}(w\vert \text{``London''})$ for all tokens as potential continuations of `"London"`
+* the predicted probabilities $\widehat{p}(w\vert \text{``London is''})$ for all tokens as potential continuations of `"London is"`
 * etc,
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/llm-pretraining-produce1.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
@@ -53,9 +53,9 @@ We'll discuss the LM head and the softmax function in the [LLM Inference Paramet
 
 The goal during training is to ensure that the right tokens will get the maximal probability. In the example below, we want
 
-* $\widehat{p}(\text{"Luke"}|\text{<BOS>})$ be the maximal among all $\widehat{p}(w|\text{<BOS>})$,
-* $\widehat{p}(\text{","}|\text{"Luke"})$ be the maximal among all $\widehat{p}(w|\text{"Luke"})$,
-* $\widehat{p}(\text{"I"}|\text{"Luke,"})$ be the maximal among all $\widehat{p}(w|\text{"Luke,"})$,
+* $\widehat{p}(\text{``Luke''}|\text{<BOS>})$ be the maximal among all $\widehat{p}(w|\text{<BOS>})$,
+* $\widehat{p}(\text{``,''}|\text{``Luke''})$ be the maximal among all $\widehat{p}(w|\text{``Luke''})$,
+* $\widehat{p}(\text{``I''}|\text{``Luke,''})$ be the maximal among all $\widehat{p}(w|\text{``Luke,''})$,
 * etc.
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/LM-training-simple.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
@@ -71,7 +71,7 @@ $$
 \end{aligned}
 $$
 
-Now, we'll apply logarithm, which is monotonic, that is for $x > 0$ $x\to\max$ is the same as $\log{x}\to\max$. Luckily, the predicted probabilities are non-negative, and they are unlikely to be exactly zero thanks to floating-point computation issues. We thus get
+Now, we'll apply logarithm, which is monotonic, that is for $x > 0$, $x\to\max$ is the same as $\log{x}\to\max$. Luckily, the predicted probabilities are non-negative, and they are unlikely to be exactly zero thanks to floating-point computation issues. We thus get
 
 $$
 \begin{aligned}
@@ -82,9 +82,9 @@ $$
 \end{aligned}
 $$
 
-There are several potential reasons to this move; right now we'll state that it is beneficial for the optimization process. Indeed, logarithm "punishes" $\widehat{p}(w|p_{1:k})$ much more severely for being small (close to zero).
+There are several potential reasons to this move; right now we'll state that it is beneficial for the optimization process. Indeed, logarithm "punishes" $\widehat{p}(w\vert p_{1:k})$ much more severely for being small (close to zero).
 
-![]({{ site.baseurl }}/assets/images/llm-training-overview/log-vs-linear.png){: .responsive-image style="--img-desktop:40%; --img-mobile:75%;"}
+![]({{ site.baseurl }}/assets/images/llm-training-overview/log-vs-linear.png){: .responsive-image style="--img-desktop:25%; --img-mobile:50%;"}
 
 Next, loss functions in Machine Learning are usually minimized, not maximized. So, we'll change the signs:
 
@@ -102,8 +102,11 @@ $$p_{\mathrm{true}}(w|v_{1:k}) = \begin{cases}
 1,\text{ if }w=v_{k+1},\\
 0,\text{ otherwise}
 \end{cases}$$
+
 Then
+
 $$\widehat{p}(v_{k+1}|v_{1:k}) = \sum_{w}p_{\mathrm{true}}(w|v_{1:k})\cdot \log\widehat{p}(w|v_{1:k})$$
+
 Indeed, in the right hand side only one summand in nonzero - the one with $w = v_{k+1}$.
 
 Finally, let's get all the things we want to minimize into one large sum - first along the sequence $v_{1:L}$, and then across all the sequences from the training dataset (or, rather, the current training batch). This way we'll get the final pre-training **loss function**:
@@ -114,7 +117,7 @@ Now you know the pre-training basics! Still, there are a few catches to note:
 
 - The collection of texts should be really, really huge. In fact, the amount of data that today's LLMs consume for training is something like the entirety of the internet itself. And there are signs that, soon enough, the available web data will no longer be enough to satiate the growing appetites of LLMs. For more, see the following picture taken from the paper [Will we run out of data?](https://arxiv.org/pdf/2211.04325).
 
-![running-out-of-data.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/09f89c11-43ed-47d0-9cb3-737d1bc3ebab/running-out-of-data.png)
+![]({{ site.baseurl }}/assets/images/llm-training-overview/running-out-of-data.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
 
 - You probably already know the principle of "Garbage in, garbage out". For LLMs, it may probably be reformulated as "Treasure in, treasure out". And indeed, the best LLMs are known to be trained on high-quality, carefully curated data.
 
@@ -123,7 +126,3 @@ Now you know the pre-training basics! Still, there are a few catches to note:
 - Many of today's LLMs can work with large context lengths, and this is also established at the pre-training phase. But LLMs are not trained on 100k-long sequences from the very beginning, because that would be too taxing from the computations perspective. (Transformers' time and memory consumption grow as square of the input sequence length.) In most cases, **progressive length training** is used.
 
   At first, the LLM might be trained on up to 8k-token-long sequences, and this would be the most intensive training part, using more than half training tokens. After that, the LLM is trained for several more stages on gradually longer sequences, e.g. 16k $\to$ 32k $\to$ 128k.
-
-
-
-- 
