@@ -47,7 +47,7 @@ For each text in the training data, the LLM processes the input by
 
 For example, when processing the phrase `"London is famous for"`, the model produces 
 
-* the predicted probabilities $\widehat{p}(w\vert \text{<BOS>})$ for all tokens as potential phrase starters
+* the predicted probabilities $\widehat{p}(w\vert \langle\text{BOS}\rangle)$ for all tokens as potential phrase starters
 * the predicted probabilities $\widehat{p}(w\vert \text{``London''})$ for all tokens as potential continuations of `"London"`
 * the predicted probabilities $\widehat{p}(w\vert \text{``London is''})$ for all tokens as potential continuations of `"London is"`
 * etc,
@@ -58,7 +58,7 @@ We'll discuss the LM head and the softmax function in the [LLM Inference Paramet
 
 The goal during training is to ensure that the right tokens will get the maximal probability. In the example below, we want
 
-* $\widehat{p}(\text{``Luke''}|\text{<BOS>})$ be the maximal among all $\widehat{p}(w|\text{<BOS>})$,
+* $\widehat{p}(\text{``Luke''}|\langle\text{BOS}\rangle)$ be the maximal among all $\widehat{p}(w|\langle\text{BOS}\rangle)$,
 * $\widehat{p}(\text{``,''}|\text{``Luke''})$ be the maximal among all $\widehat{p}(w|\text{``Luke''})$,
 * $\widehat{p}(\text{``I''}|\text{``Luke,''})$ be the maximal among all $\widehat{p}(w|\text{``Luke,''})$,
 * etc.
