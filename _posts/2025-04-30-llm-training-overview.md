@@ -186,23 +186,25 @@ This can be collected by prompting the LLM, obtaining two (or more) continuation
 
 As an example, OpenAI collected a dataset of 100K–1M comparisons when they created ChatGPT, and they asked their labellers to rank many potential answers:
 
-![preference-labeling-interface.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/84c8be54-be9c-42c5-bed3-dfca0eaeb983/preference-labeling-interface.png)
+![]({{ site.baseurl }}/assets/images/llm-training-overview/preference-labeling-interface.png){: .responsive-image style="--img-desktop:80%; --img-mobile:90%;"}
 
-Of course, this was expensive; using another powerful LLM to rank completions is a cheaper alternative.
+Of course, this was expensive; using another powerful LLM to rank completions is a cheaper even if a more noisy alternative.
 
 From there, we need to use this preference dataset to fine-tune our LLM and one way to start this is by training a reward model.
 
 ## Trainable reward model
 
-A trainable **reward model** formalizes human preferences in an LLM-training-friendly way. Usually this involves a function {formula}r(x, y){/formula} taking a prompt {formula}x{/formula} as input with its continuation {formula}y{/formula} and outputting a number. More accurately, a reward model is a neural network which can be trained on triples
+A trainable **reward model** formalizes human preferences in an LLM-training-friendly way. Usually this involves a function $r(x, y)$ taking a prompt $x$ as input with its continuation $y$ and outputting a number. More accurately, a reward model is a neural network which can be trained on triples
 
-`(prompt, preferred continuation, rejected continuation)`
+```
+(prompt, preferred continuation, rejected continuation)
+```
 
 by encouraging
 
-{formula}r(\mbox{`prompt, preferred continuation`}) > r(\mbox{`prompt, rejected continuation`}).{/formula}
+$$r(\text{prompt, preferred continuation}) > r(\text{prompt, rejected continuation}).$$
 
-That is, {formula}r(x, y){/formula} is a **ranking model**.
+That is, $r(x, y)$ is a **ranking model**.
 
 Now, we want to train our LLM to get the maximum possible reward, and it turns out that we need Reinforcement Learning (RL) to do that.
 
@@ -210,10 +212,14 @@ Now, we want to train our LLM to get the maximum possible reward, and it turns o
 
 Let's ask the question this way: why can't we train the LLM to maximize reward using supervised fine-tuning?
 
-This is because supervised fine-tuning, as we've already discussed, trains an LLM to produce specific completions for specific prompts. However, this is not in the spirit of alignment training! Instead, we want to teach the LLM to produce completions with maximal possible reward. To do that, we need to:
+But let's ask ourselves a questions: how do we explain to someone which answers are toxic and which is not? Can we do it by only demonstrating non-toxic options? Not likely. The model should see both positive and negative examples to learn how to discern between them.
+
+Another reason is in the complexity of dataset collection: judging LLM-generated completions as accepted and rejected is much easier than manually creaing them.
+
+The plan will be as follows:
 
 - Make the LLM produce completions
-- Judge them with the reward model
+- Score them with the reward model
 - Suggest the LLM to improve itself based upon the reward it received
 
 And conveniently, this is exactly what RL does!
@@ -227,7 +233,7 @@ Imagine you want to train an AI bot to play [Prince of Persia](https://www.youtu
 - Run out of time and lose
 - Save the princess and win
 
-![pop.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/2cfe32c2-9330-4a88-b752-63d9dd9c982a/pop.png)
+![]({{ site.baseurl }}/assets/images/llm-training-overview/pop.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
 
 The simplest AI bot would be a neural network that takes the current screen (or maybe several recent screens) as an input and predicts the next action – but how to train it?
 
@@ -252,14 +258,14 @@ Let's formalize this a bit using conventional RL terminology:
 - The **policy** is the (trainable) strategy the bot uses for playing. In our case, this is the neural network that predicts actions given the current state, or the state history.
 - The **reward** is the score that we assign to the states. For example, defeating a guard, progressing to a next level, or winning the game might have positive rewards, while falling into a pit or getting wounded by a guard would mean negative rewards.
 
-![princely-rl.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/e998b18a-858f-4f98-9137-da096ecf6ef8/princely-rl.png)
+![]({{ site.baseurl }}/assets/images/llm-training-overview/princely-rl.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
 
 The goal of the training is finding a policy that maximizes reward, and there are many ways of achieving this.
 We'll now see that alignment training has much relevance with Prince of Persia.
 
 ## The idea behind RLHF
 
-**RLHF** (**Reinforcement Learning with Human Feedback**) is the training mechanism that:
+**RLHF** (**Reinforcement Learning with Human Feedback**) is the original alignment training mechanism which:
 
 - Created [InstructGPT](https://openai.com/index/instruction-following/) (an Instruct model) from GPT-3
 - Created [ChatGPT](https://openai.com/index/chatgpt/) (a Chat model) from GPT-3.5, the more advanced version of GPT-3
@@ -268,82 +274,47 @@ We'll now see that alignment training has much relevance with Prince of Persia.
 As suggested by its name, RLHF is a **Reinforcement Learning** approach, and as such, it involves the following:
 
 - An **agent**: that is, our LLM,
-- An observed **state**: the prompt and the part of the completion that has already been generated
-- **Actions**: generation of the next token
+- An observed **state**: the prompt
+- **Actions**: generation of a completion
 - **Reward**: reward model score
 
-![rl-scheme.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/bb4906e3-4661-456f-802b-d42beb627a92/rl-scheme.png)
+So, RLHF works with a one-turn game which terminates after the completion is created.
 
-Roughly speaking, we want do the following:
+![]({{ site.baseurl }}/assets/images/llm-training-overview/rlhf-scheme.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
 
-1. The **agent** (our LLM) generates the next token {formula}y_{t+1}{/formula} based on the **current observed state**: prompt {formula}x{/formula}, the current completion {formula}y_1\ldots y_t{/formula}.
-2. The current completion is updated to {formula}y_{1:(t+1)} = y_1\ldots y_ty_{t+1}{/formula}. It will now be part of the **next state**.
-3. The **reward model** returns the score {formula}r(x, y_{1:(t+1)}){/formula}.
-4. The weights of the LLM are updated to maximize {formula}r{/formula} (in RL terms: we are updating the agent's **policy**).
-5. Return to step 1 and continue until we generate the `<EOS>` token.
+Optimizing the LLM's parameters in $r(x, y) = r(x, \mathrm{\color{magenta}{LLM}}(x))$ sounds easy, but it is actually not. Calculating $\mathrm{\color{magenta}{LLM}}(x)$ requires *random sampling* of each of the completion's tokens from the predicted distribution $\widehat{p}(w \vert xy_{1:k})$, $k=1,\ldots, \text{len}(y)-1$. And we can't just propagate gradients through a random sapling procedure.
 
-Here, step 4 is the most involved. We would very much like to just update the LLM weights through
+Traditionally, **PPO** (**Proximal Policy Optimization**) with some additional modifications, is used instead. We'll omit the details here and revisit RLHF technicalities in the Math of RLHF and DPO long read. Still, let's note several important things here:
 
-{formula}r(x, y_1\ldots y_ty_{t+1}) = r(x, \mathrm{\color{magenta}{LLM}}(y_1\ldots y_t))\longrightarrow\max,{/formula}
+**Note 1**. RLHF is not the name of a particular algorithm. Rather, it's a particular training setup where reward, trained on human-created preference data, is optimized through Reinforcement Learning.
 
-but this wouldn't work so simply. Traditionally, PPO (Proximal Policy Optimization) with some additional modifications, is used instead. We'll omit the details here and revisit RLHF technicalities in Module 2 as well as the optimization process. Still, let's note several important things here:
+**Note 2**. RLHF fine tuning doesn't require pairs `(prompt, completion)` for training. The dataset for RLHF consists of prompts only, and the completions are generated by the model itself as part of the trial-and-error. Pairs `(prompt, completion)` are used during the reward model training.
 
-**Note 1**. RLHF is not the name of a particular algorithm. Rather, it's a particular task formulation where the reward used in training (reward model) is an approximation of the "true" reward, which lives in the human minds (that is, real human preferences).
-
-**Note 2**. RLHF fine tuning doesn't require pairs `(prompt, completion)` for training. The dataset for RLHF consists of prompts only, and the completions are generated by the model itself as part of the trial-and-error.
-
-**Note 3**. OpenAI used 10K–100K prompts for the RLHF training stage of ChatGPT, which is comparable to the SFT dataset size. Moreover, the prompts were high-quality and written by experts and they were different from both the SFT and reward model training prompts.
+**Note 3**. OpenAI used 10K–100K prompts for the RLHF training stage of its original ChatGPT, which is comparable to the SFT dataset size. Moreover, the prompts were high-quality and written by experts and they were different from both the SFT and reward model training prompts.
 
 In practice, RLHF may produce some effect even after training on about 1K prompts. Moreover, it is often trained on the same prompts that were used for reward modeling (because of the lack of data). But the quality of these prompts matters, and the less you have of them, the more you should be concerned about the quality.
 
 **Note 4.** While RLHF improves alignment with human preferences, it doesn't directly optimize output correctness and plausibility. This means that alignment training can harm the LLM quality. So while a model that refuses to answer any question will never tell a user how to make a chemical weapon so it's perfectly harmless – although still utterly useless for helpful purposes, too.
 
-To address this issue, we try to ensure that the RLHF-trained model doesn't diverge much from its SFT predecessor. This is often enforced by adding a regularization term to the optimized function:
+To address this issue, we try to ensure that the RLHF-trained model doesn't diverge much from its SFT predecessor. This is often enforced by adding some kind of regularization. We'll discuss different regularization strategies in the Math of RLHF and DPO long read.
 
-{formula}\mathcal{L}(X) = \sum_{i=1}^Nr(x_i, \text{`LLM`}(x_i)) - \text{dist}(\text{`trained\\_LLM`}, \text{`frozen\\_SFT\\_LLM`}),{/formula}
-
-where dist is some kind of distance; Kullback-Leibler divergence between the predicted probability distributions is popular in this role. This way, we maximize the reward while keeping the distance low.
-
-- Beware: math! Read at your own risk!
-    
-    In math terms, the loss is:
-    
-    {formula}\mathcal{L}*{\mathrm{RLHF}} = \mathbb{E}*{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}\left[r(x, y)\right] - \beta\mathbb{D}*{\mathrm{KL}}\left[\pi*{\theta}(y|x)||\pi_{\mathrm{SFT}}(y|x)\right],{/formula}
-    
-    where
-    
-    - {formula}\pi_{\theta}(y|x){/formula} is the probability distribution of completion {formula}y{/formula} given the prompt {formula}x{/formula}, predicted by the trainable LLM
-    - {formula}\pi_{\mathrm{SFT}}(y|x){/formula} is the same, but for the frozen after-SFT LLM
-    
-    You can read {formula}\mathbb{E}*{x\sim\mathcal{D}, y\sim\pi*{\theta}(y|x)}{/formula} as:
-    
-    - we iterate over prompts {formula}x{/formula} from the preference fine-tuning dataset
-    - for each of them we generate a completion {formula}y{/formula} using the trainable LLM
-    - we calculate {formula}r(x, y){/formula} for all the pairs we've got, and we average these values.
+**Note 5.** What’s even more troubling is that some LLMs exhibit clear signs of **reward hacking** - they comply with the reward function while diverging from the human principles that function was meant to represent. This behavior isn’t unique to LLMs; humans do it too. For example, a hospital might avoid admitting high-risk patients to improve its survival statistics. LLMs are no different. Take Claude 3.7 Sonnet from Anthropic: it was clearly trained to be highly helpful, which likely explains why it often takes excessive initiative - contributing with its own thoughts when asked to edit a document or generating unsolicited code.
 
 ## Direct Preference Optimization
 
-Reinforcement Learning is a capricious tool, so there have been several attempts at getting rid of it for alignment training. The most popular one right now is [**DPO**](https://arxiv.org/pdf/2305.18290) (**Direct Preference Optimization**). Let's try to briefly summarize the differences:
+Reinforcement Learning is a capricious tool - making it work is often tricky. So there have been several attempts at getting rid of it for alignment training. The most popular one right now is [**DPO**](https://arxiv.org/pdf/2305.18290) (**Direct Preference Optimization**). Leaving math to the dedicated long read let's try to briefly summarize the differences:
 
 1. **RLHF**:
+
     - Trains an external reward model to approximate human preference
     - It then fine-tunes the LLM to maximize this synthetic reward using a trial-and-error, on-policy regime
-2. **DPO** (**Direct preference optimization**):
-    - Uses some math to suggest an internal reward model that doesn't take into account human preferences. It turns out to be very simple and it roughly says:
-    "*A continuation {formula}y{/formula} is better for a prompt {formula}y{/formula} if {formula}y{/formula} is more likely to be generated from {formula}x{/formula} by the LLM*".
-    - It then takes the `(prompt, preferred_continuation, rejected_continuation)` dataset and trains the LLM on it in a simple supervised way to ensure that, roughly speaking, the preferred continuation is more likely to be generated from the prompt than the rejected one*.
 
-Again, more about this in week 2.
+3. **DPO** (**Direct preference optimization**):
 
-![rlhf-vs-dpo.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/de8090b9-ab5c-41ac-ab6e-4a86e3835655/rlhf-vs-dpo.png)
+    - Uses some math to suggest an *internal reward model* that doesn't take into account human preferences. It turns out to be very simple and it roughly says:
+   
+    "*A continuation $y$ is better for a prompt $x$ if $y$ is more likely to be generated from $x$ by the LLM*".
+   
+    - It then takes the human-created `(prompt, preferred_continuation, rejected_continuation)` dataset and trains the LLM on it in a simple supervised way to ensure that, roughly speaking, the preferred continuation is more likely to be generated from the prompt than the rejected one.
 
-- Beware: math! Read at your own risk!
-    
-    The actual loss function for DPO is
-    
-    {formula}\mathcal{L}*{\mathrm{DPO}} = \mathbb{E}*{(x, y_a, y_r)\sim\mathcal{D}}\sigma\left(\beta\log\frac{\pi_{\theta}(y_a|x)}{\pi_{\mathrm{SFT}}(y_a|x)} - \beta\log\frac{\pi_{\theta}(y_r|x)}{\pi_{\mathrm{SFT}}(y_r|x)}\right),{/formula}
-    
-    where {formula}y_a{/formula} stands for the accepted (preferred) completion and {formula}y_r{/formula} for the rejected one.
-    
-
-## Quiz 1
+![]({{ site.baseurl }}/assets/images/llm-training-overview/rlhf-vs-dpo.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
