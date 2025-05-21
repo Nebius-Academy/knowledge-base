@@ -14,6 +14,10 @@
   <!-- Google Fonts: Inter -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
+  <!-- Prism.js for syntax highlighting -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css" rel="stylesheet" />
+
   <!-- MathJax Configuration -->
   <script>
     MathJax = {
@@ -154,9 +158,9 @@
       color: #3a3a3a;
     }
 
-    /* Code block styling */
-    pre {
-      background-color: #f0f8ff;
+    /* Code block styling - override Prism.js background */
+    pre[class*="language-"] {
+      background-color: #f5f9ff !important;
       border-radius: 4px;
       padding: 16px;
       overflow-x: auto;
@@ -164,27 +168,20 @@
       border: 1px solid #e0e8ef;
     }
     
-    code {
+    code[class*="language-"] {
       font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
       font-size: 0.9em;
+      background: none;
     }
     
     /* Inline code styling */
-    p code, li code {
-      background-color: #f0f8ff;
+    :not(pre) > code {
+      background-color: #f5f9ff;
       padding: 2px 4px;
       border-radius: 3px;
       border: 1px solid #e0e8ef;
-    }
-    
-    /* Language-specific code highlighting - basic styling */
-    pre.language-bash, pre.language-shell, 
-    pre.language-javascript, pre.language-js,
-    pre.language-python, pre.language-py,
-    pre.language-ruby, pre.language-css,
-    pre.language-html, pre.language-json,
-    pre.language-yaml, pre.language-md {
-      position: relative;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.9em;
     }
   </style>
   <!-- End of Custom Styles -->
@@ -205,6 +202,13 @@
 
   <!-- tocbot: Table of Contents generator -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.11.1/tocbot.min.js"></script>
+
+  <!-- Prism.js for syntax highlighting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/show-language/prism-show-language.min.js"></script>
+  
   <script>
     // Wait for the DOM to be fully loaded
     document.addEventListener('DOMContentLoaded', function() {
@@ -223,6 +227,18 @@
         hasInnerContainers: true,
         collapseDepth: 6,
         orderedList: true
+      });
+
+      // If using Jekyll-based markdown code blocks, this helps transform them to Prism.js format
+      document.querySelectorAll('pre code').forEach(function(codeBlock) {
+        // Get the language class if it exists (e.g. "language-python")
+        const classList = Array.from(codeBlock.classList);
+        const languageClass = classList.find(className => className.startsWith('language-'));
+        
+        if (languageClass) {
+          // Add Prism.js language class to the parent <pre> element
+          codeBlock.parentNode.classList.add(languageClass);
+        }
       });
     });
   </script>
