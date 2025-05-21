@@ -153,6 +153,39 @@
       font-weight: 600;
       color: #3a3a3a;
     }
+
+    /* Code block styling */
+    pre {
+      background-color: #f0f8ff;
+      border-radius: 4px;
+      padding: 16px;
+      overflow-x: auto;
+      margin-bottom: 1.5em;
+      border: 1px solid #e0e8ef;
+    }
+    
+    code {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.9em;
+    }
+    
+    /* Inline code styling */
+    p code, li code {
+      background-color: #f0f8ff;
+      padding: 2px 4px;
+      border-radius: 3px;
+      border: 1px solid #e0e8ef;
+    }
+    
+    /* Language-specific code highlighting - basic styling */
+    pre.language-bash, pre.language-shell, 
+    pre.language-javascript, pre.language-js,
+    pre.language-python, pre.language-py,
+    pre.language-ruby, pre.language-css,
+    pre.language-html, pre.language-json,
+    pre.language-yaml, pre.language-md {
+      position: relative;
+    }
   </style>
   <!-- End of Custom Styles -->
 </head>
