@@ -5,7 +5,7 @@ categories: blog
 permalink: /hallucinations-in-ralms/
 ---
 
-**By: Alexander Rubinstein**
+**By: [Alexander Rubinstein](https://www.linkedin.com/in/alexander-rubinstein-043564116/)**
 
 # What hallucinations are and why are they important?
 
