@@ -5,7 +5,7 @@ categories: blog
 permalink: /databases-a-practical-guide/
 ---
 
-By: Nikita Pavlichenko
+**By: [Nikita Pavlichenko](https://pavlichenko.info)**
 
 AI engineering often involves handling various types of data, from structured records to unstructured embeddings. This guide introduces four key database types – [**relational**](https://en.wikipedia.org/wiki/Relational_database), [**in-memory**](https://en.wikipedia.org/wiki/In-memory_database), [**NoSQL**](https://en.wikipedia.org/wiki/NoSQL), and [**vector**](https://en.wikipedia.org/wiki/Vector_database) – and provides hands-on examples for each. We assume you have a software engineering background but little database experience. Each section includes an overview of the database type, why it’s relevant to AI/ML workloads, step-by-step setup instructions (using [Docker](https://www.docker.com/) for convenience), and examples of querying the database using both native tools and Python code. The goal is to get you comfortable with basic database concepts and operations in a **beginner-friendly** way.
 
