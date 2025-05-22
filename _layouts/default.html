@@ -183,6 +183,31 @@
       font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
       font-size: 0.9em;
     }
+
+    /* Blockquote styling */
+    blockquote {
+      margin: 1.5em 0;
+      padding: 1em 1.2em;
+      background-color: #f8f9fa;
+      border-left: 4px solid #007acc;
+      border-radius: 0 4px 4px 0;
+      font-style: normal;
+      position: relative;
+    }
+
+    /* Remove default margins from paragraphs inside blockquotes */
+    blockquote p {
+      margin: 0 0 1em 0;
+    }
+
+    blockquote p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Style for MathJax inside blockquotes */
+    blockquote .MathJax {
+      margin: 0.5em 0;
+    }
   </style>
   <!-- End of Custom Styles -->
 </head>

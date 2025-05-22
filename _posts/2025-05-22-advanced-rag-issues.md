@@ -57,7 +57,7 @@ $$
 
 The figure below shows an example of raw synthetic dataset creation. The ground document $c_{\text{gold}}$ (starting with “[0]”) is given to generator to come up with query $x$ (question starting with “question: In what year ….”) and response $y$ (answer 1987) pair. Then the question is used to extract additional documents $c_1, \ldots, c_K$ (documents starting with “[1]”, “[2]” and “[3]”).
 
-![]({{ site.baseurl }}/assets/images/advanced-rag-issues/rag-studio-data-generation.png){: .responsive-image style="--img-desktop:70%; --img-mobile:80%;"}
+![]({{ site.baseurl }}/assets/images/advanced-rag-issues/rag-studio-data-generation.png){: .responsive-image style="--img-desktop:40%; --img-mobile:80%;"}
 
 [Source](https://aclanthology.org/2024.findings-emnlp.41.pdf)
 
@@ -77,12 +77,12 @@ H^{\prime}, y^{\prime}=
 \right)
 $$
 
-Where $C = \{c_1, \ldots, c_K\} \cup c_{\text{gold}}$ or $C = \{c_1, \ldots, c_K\}$, $y^\prime$ is predicted response and  $H^{\prime} = h^{\prime}_1, \ldots, h^{\prime}_K$ contains helpfulness labels $h^{\prime}_i$  $\{\text{"helpful", "irrelevant", "misleading"}\}$ for each document in $C$ and chain-of-thought rationale for these labels.
+Where $C = \\{c_1, \ldots, c_K\\} \cup c_{\text{gold}}$ or $C = \\{c_1, \ldots, c_K\\}$, $y^\prime$ is predicted response and  $H^{\prime} = h^{\prime}_1, \ldots, h^{\prime}_K$ contains helpfulness labels $h^{\prime}_i$  $\\{\text{"helpful", "irrelevant", "misleading"}\\}$ for each document in $C$ and chain-of-thought rationale for these labels.
 
 An illustration of the first stage is shown in the figure below. The generator receives a set of retrieved documents (starting with “[1]”, “[2]”, and “[3]”) along with a question from the previous figure (starting with “Question: In what year …”.). It then generates an answer (1903, which is incorrect since 1987 is the correct answer for the current question, as can be seen in the previous figure) and a rationale that evaluates the helpfulness of each document (starting with “[Evaluation]: [0] discusses.…”). Finally, it assigns helpfulness labels to each retrieved document ([helpful, helpful, irrelevant, misleading]).
 
 
-![]({{ site.baseurl }}/assets/images/advanced-rag-issues/document-helpfulness-evaluation.png){: .responsive-image style="--img-desktop:50%; --img-mobile:80%;"}
+![]({{ site.baseurl }}/assets/images/advanced-rag-issues/document-helpfulness-evaluation.png){: .responsive-image style="--img-desktop:40%; --img-mobile:80%;"}
 
 [Source](https://aclanthology.org/2024.findings-emnlp.41.pdf)
 
@@ -91,7 +91,7 @@ In the second stage, the generator's predictions $H^{\prime}$ and $y^{\prime}$ a
 This process is illustrated in the figure below. The original ground document $c_{\text{gold}}$ (starting with “[0]”) is treated as a positive example. Document $c_1$ (starting with “[1]”) is originally labeled as “helpful”, and therefore, is treated as a hard negative example. This is because the answer predicted by generator (1903) was incorrect, as shown in the previous figure.
 
 
-![]({{ site.baseurl }}/assets/images/advanced-rag-issues/retriever-fine-tuning.png){: .responsive-image style="--img-desktop:50%; --img-mobile:80%;"}
+![]({{ site.baseurl }}/assets/images/advanced-rag-issues/document-helpfulness-evaluation.png){: .responsive-image style="--img-desktop:40%; --img-mobile:80%;"}
 
 [Source](https://aclanthology.org/2024.findings-emnlp.41.pdf)
 
@@ -112,7 +112,11 @@ In the previous section the retriever was fine-tuned on synthetic data independe
 
 One way to capitalize on this idea and adapt retriever’s embeddings to new domains is to fine-tune them jointly with a generative language model (LM) on the available realistic or synthetic data from the domain of interest. Usually, it is done by [minimizing the negative log likelihood of the correct response conditioned on the retrieved document](https://arxiv.org/abs/2002.08909). 
 
-Let’s denote $p(y \mid c, x)$ as the language model’s likelihood of generating response $y$, based on query $x$, and the retrieved document $c$. The term $p(c \mid x)$ as the probability of a retriever to extract a document $c$ from an external database $\mathcal{D}$. The terms $\mathrm{E}_{\mathrm{document}}$ **and *$\mathrm{E}_{query}$* as text encoders that compute embeddings for documents and queries, respectively and can share the same weights. **
+Let’s denote $p(y \mid c, x)$ as the language model’s likelihood of generating response $y$, based on query $x$, and the retrieved document $c$. The term $p(c \mid x)$ as the probability of a retriever to extract a document $c$ from an external database $\mathcal{D}$. The terms 
+
+$$\mathrm{E}_{\mathrm{document}}\text{ and }\mathrm{E}_{query}$$
+
+as text encoders that compute embeddings for documents and queries, respectively and can share the same weights.
 
 Then the loss for joint fine-tuning of retriever and generator can be expressed as follows:
 
@@ -128,7 +132,11 @@ $$
 f(x, c) =\operatorname{E}_{\text{query}}(x) \text { E }_{\text{document}}(c)^{\top}
 $$
 
-> Note: we treat embeddings as row-vectors, that is why the dot-product $\operatorname{E}_{\text{query}}(x) \text { E }_{\text{document}}(c)^{\top}$ has transpose sign after the second term and not the first.
+> Note: we treat embeddings as row-vectors, that is why the dot-product
+>
+> $$\operatorname{E}_{\text{query}}(x) \text { E }_{\text{document}}(c)^{\top}$$
+>
+> has transpose sign after the second term and not the first.
 > 
 
 **Reconstruction signal**
@@ -142,7 +150,7 @@ They first instruct the retriever to extract documents similar to the user query
 To help the model distinguish the reconstruction task from the standard task (e.g. QA task), the query $x$ is replaced with the utility token $\text{<p>}$ while expected response $y$ is replaced by the query $x$ itself. After these changes, the training loss is updated as follows:
 
 $$
-\mathcal{L} =- \operatorname{log}[\sum_{c \in \mathcal{D}} p(x \mid c, \text{<p>}) p(c \mid x)]
+\mathcal{L} =- \operatorname{log}\left[\sum_{c \in \mathcal{D}} p(x \mid c, \text{<p>}) p(c \mid x)\right]
 $$
 
 This loss ensures that when the language model is prompted with $\text{<p>}$ and $c$, it generates such a query $x$, that leads the retriever to extract documents $c$ from the external database. 
@@ -178,7 +186,7 @@ As a result, splitting texts into propositions improves retrieval performance co
 
 The Propositionizer is trained using a two-step distillation process. First, the authors prompt [chatGPT-4](https://chatgpt.com/) with an instruction. The prompt includes the definition of a proposition and a one-shot demonstration. They use 42,000 passages and let chatGPT-4 generate a seed set of paragraph-to-proposition pairs. Next, the authors use this seed set to fine-tune a [Flan-T5-large model](https://arxiv.org/abs/2210.11416). The figure below shows the details of the prompt shown to GPT-4:
 
-![]({{ site.baseurl }}/assets/images/paragraph-to-proposition-prompt.png){: .responsive-image style="--img-desktop:80%; --img-mobile:90%;"}
+![]({{ site.baseurl }}/assets/images/advanced-rag-issues/paragraph-to-proposition-prompt.png){: .responsive-image style="--img-desktop:80%; --img-mobile:90%;"}
 
 [Source](https://arxiv.org/abs/2312.06648)
 
@@ -192,13 +200,13 @@ It aims to construct such a tree-structure where higher nodes summarise lower-la
 
 To build such a tree-structure, RAPTOR first clusters original text chunks using Gaussian Mixture Models. Then it generates text summaries for each cluster, so that each summary becomes a higher node in the tree while all documents in the cluster serve as its children. It repeats the process to build a tree from the bottom up. This whole process can be seen in the figure below:
 
-![]({{ site.baseurl }}/assets/images/raptor-tree-structure.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
+![]({{ site.baseurl }}/assets/images/advanced-rag-issues/raptor-tree-structure.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
 
 [Source](https://arxiv.org/abs/2401.18059)
 
 For retrieving documents from this tree, they propose two strategies: tree traversal and collapsed tree. Tree traversal examines each layer one by one from the top to bottom and selects the most relevant nodes. Collapsed tree considers nodes from all layers at once to find the most relevant ones. Relevant nodes are those with embeddings most similar to the query embeddings. The figure below visualizes the tree traversal strategy:
 
-![]({{ site.baseurl }}/assets/images/raptor-traversal-retrieval.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
+![]({{ site.baseurl }}/assets/images/advanced-rag-issues/raptor-traversal-retrieval.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
 
 [Source](https://arxiv.org/abs/2401.18059)
 
