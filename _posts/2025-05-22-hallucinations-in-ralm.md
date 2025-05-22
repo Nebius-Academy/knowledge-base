@@ -94,7 +94,13 @@ $$
 y_t \sim  p_\theta\left(y_t \mid \boldsymbol{c}, \boldsymbol{x}, \boldsymbol{y}_{<t}\right)\left(\frac{p_\theta\left(y_t \mid \boldsymbol{c}, \boldsymbol{x}, \boldsymbol{y}_{<t}\right)}{p_\theta\left(y_t \mid \boldsymbol{x}, \boldsymbol{y}_{<t}\right)}\right)^\alpha
 $$
 
-The numerator $p_\theta\left(y_t \mid \boldsymbol{c}, \boldsymbol{x}, \boldsymbol{y}_{<t}\right)$ is the probability of sampling token $y_t$ given the context $c$, user query $x$ and already generated part of response $\boldsymbol{y}_{<t}$. The denominator ${p_\theta\left(y_t \mid \boldsymbol{x}, \boldsymbol{y}_{<t}\right)}$ is the probability of sampling the same token without using the context. The higher this ratio, the stronger the emphasis on tokens whose probability increases after adding context. The parameter $\alpha$ controls the magnitude of this emphasis.
+The numerator 
+
+$$p_\theta\left(y_t \mid \boldsymbol{c}, \boldsymbol{x}, \boldsymbol{y}_{<t}\right)$$ 
+
+is the probability of sampling token $y_t$ given the context $c$, user query $x$ and already generated part of response $\boldsymbol{y}_{<t}$. 
+
+The denominator ${p_\theta\left(y_t \mid \boldsymbol{x}, \boldsymbol{y}_{<t}\right)}$ is the probability of sampling the same token without using the context. The higher this ratio, the stronger the emphasis on tokens whose probability increases after adding context. The parameter $\alpha$ controls the magnitude of this emphasis.
 
 After expressing the probability with the softmax operator and rearranging the terms we end up with:
 
@@ -102,7 +108,15 @@ $$
 \begin{gathered}y_t \sim \operatorname{softmax}\left[(1+\alpha) \operatorname{logit}_\theta\left(y_t \mid \boldsymbol{c}, \boldsymbol{x}, \boldsymbol{y}_{<t}\right)\right. \\ \left.-\alpha \operatorname{logit}_\theta\left(y_t \mid \boldsymbol{x}, \boldsymbol{y}_{<t}\right)\right]\end{gathered}
 $$
 
-where “$\operatorname{logit}$” stands for the operation that obtains pre-softmax model outputs. This formula shows that selecting an appropriate value for $\alpha$ ensures that tokens with $\operatorname{logit}_\theta\left(y_t \mid \boldsymbol{c}, \boldsymbol{x}, \boldsymbol{y}_{<t}\right)$ higher than $\operatorname{logit}_\theta\left(y_t \mid\boldsymbol{x}, \boldsymbol{y}_{<t}\right)$ will have the highest sampling probability. This is exactly what happened with the answer "Three" in the example figure.
+where “$\operatorname{logit}$” stands for the operation that obtains pre-softmax model outputs. This formula shows that selecting an appropriate value for $\alpha$ ensures that tokens with 
+
+$$\operatorname{logit}_\theta\left(y_t \mid \boldsymbol{c}, \boldsymbol{x}, \boldsymbol{y}_{<t}\right)$$
+
+higher than 
+
+$$\text{logit}_{\theta}\left(y_t \mid\boldsymbol{x}, \boldsymbol{y}_{<t}\right)$$ 
+
+will have the highest sampling probability. This is exactly what happened with the answer "Three" in the example figure.
 
 ### Faithfulness filtering
 
