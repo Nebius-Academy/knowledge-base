@@ -21,7 +21,7 @@ While working well for those RALMs that utilize standard external databases like
 
 ### Synthetic data for fine-tuning
 
-Experience from other tasks in natural language processing suggests that fine-tuning text-embeddings on the data from the domain of interest can improve RALM’s performance in that domain. However, finding a fine-tuning dataset is not easy. Unlike pre-training data for masked language modelling, fine-tuning datasets for RALM require annotations (samples in these datasets must include {query, response, relevant documents} triplets). This poses a challenge in new domains that are quite specific (e.g. subfields of law or finance) and have little or no annotated data. For such domains, apart from annotation of query-response-documents triplets, finding a relevant knowledge corpus of the size large enough (usually 50k - 250k documents [RAG-studio](https://aclanthology.org/2024.findings-emnlp.41.pdf), [Query reconstruction](https://arxiv.org/abs/2210.02627)) can already be a problem.
+Experience from other tasks in natural language processing suggests that fine-tuning text-embeddings on the data from the domain of interest can improve RALM’s performance in that domain. However, finding a fine-tuning dataset is not easy. Unlike pre-training data for masked language modelling, fine-tuning datasets for RALM require annotations (samples in these datasets must include {query, response, relevant documents} triplets). This poses a challenge in new domains that are quite specific (e.g. subfields of law or finance) and have little or no annotated data. For such domains, apart from annotation of query-response-documents triplets, finding a relevant knowledge corpus of the size large enough (usually 50k - 250k documents [[RAG-studio](https://aclanthology.org/2024.findings-emnlp.41.pdf), [Query reconstruction](https://arxiv.org/abs/2210.02627)]) can already be a problem.
 
 One way to sidestep this is to use language model to generate a synthetic fine-tuning data. 
 
@@ -29,13 +29,13 @@ Following this direction, authors of [[RAG-studio](https://aclanthology.org/2024
 
 **Raw synthetic dataset creation**
 
-The input to RAG-Studio includes a domain corpus with multiple documents $\mathcal{D} = \\{c_1, \ldots, c_n\\}$~, a general LLM-based generator $G$, and a retriever $R$.  First, a generator $G$ is prompted to produce a query $x$ and its corresponding response $y$ based on a ground document $c_{\text{gold}}$ which is randomly selected from $\mathcal{D}$  (by design this document will be the most relevant “golden” context for the produced query):
+The input to RAG-Studio includes a domain corpus with multiple documents $\mathcal{D} = \{c_1, \ldots, c_n\}$, a general LLM-based generator $G$, and a retriever $R$.  First, a generator $G$ is prompted to produce a query $x$ and its corresponding response $y$ based on a ground document $c_{\text{gold}}$ which is randomly selected from $\mathcal{D}$  (by design this document will be the most relevant “golden” context for the produced query):
 
 $$
 x, y = G\left(
 \begin{aligned}
 \text{"Generate query and response pair, such} \\
-\text{that response is based on \{c_{gold}\}"}
+\text{that response is based on \{c\_{gold}\}"}
 \end{aligned}
 \right)
 $$
@@ -143,7 +143,7 @@ $$
 
 While the loss above is mathematically sound and widely adopted, in principle its optimization might result in undesirable behaviour when generator learns to ignore all the retrieved documents and predict response based solely on the query. Such an “ignorance” might emerge when the external database contains many noisy or irrelevant documents.
 
-To avoid such trivial solutions and help the RALM adapt to domain-specific knowledge base, the authors of [Query reconstruction](https://arxiv.org/abs/2210.02627) suggested adding query reconstruction loss as an auxiliary signal to the loss above while fine-tuning their retriever and generator.
+To avoid such trivial solutions and help the RALM adapt to domain-specific knowledge base, the authors of [[Query reconstruction](https://arxiv.org/abs/2210.02627)] suggested adding query reconstruction loss as an auxiliary signal to the loss above while fine-tuning their retriever and generator.
 
 They first instruct the retriever to extract documents similar to the user query from the external knowledge base. Then they train the language model to reconstruct the user query using only the retrieved documents.
 
@@ -180,7 +180,7 @@ The figure below shows an example of extracting propositions from a document. Gi
 
 [Source](https://arxiv.org/pdf/2312.06648)
 
-As a result, splitting texts into propositions improves retrieval performance compared to splitting into passages or sentences. For example, the Recall@5 metric (percentage of questions for which the correct answer is found within the top-5 retrieved passages) for the [Contreiver](https://arxiv.org/abs/2112.09118) retriever increases from 43.0% for passages and 47.3% for sentences to 52.7% for propositions.
+As a result, splitting texts into propositions improves retrieval performance compared to splitting into passages or sentences. For example, the Recall@5 metric (percentage of questions for which the correct answer is found within the top-5 retrieved passages) for the Contreiver retriever increases from 43.0% for passages and 47.3% for sentences to 52.7% for propositions.
 
 ### Training a propositionizer model
 
@@ -210,4 +210,4 @@ For retrieving documents from this tree, they propose two strategies: tree trave
 
 [Source](https://arxiv.org/abs/2401.18059)
 
-Such a tree structure allows RAPTOR paired with retriever to load chunks into an LLM’s context at different levels, enabling efficient and effective question answering. For example when using RAPTOR in combination with [SBERT](https://arxiv.org/abs/1908.10084) retriever on [QuALITY](https://arxiv.org/abs/2112.08608) dataset, accuracy of answers grows from 54.9% to 56.6%.
+Such a tree structure allows RAPTOR paired with retriever to load chunks into an LLM’s context at different levels, enabling efficient and effective question answering. For example when using RAPTOR in combination with SBERT retriever on QuALITY dataset, accuracy of answers grows from 54.9% to 56.6%.
