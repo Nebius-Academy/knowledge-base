@@ -118,10 +118,17 @@ $$\text{logit}_{\theta}\left(y_t \mid\boldsymbol{x}, \boldsymbol{y}_{<t}\right)$
 
 will have the highest sampling probability. This is exactly what happened with the answer "Three" in the example figure.
 
-### Faithfulness filtering
+## Faithfulness filtering
 
 [Another way](https://arxiv.org/abs/2406.13692) to ensure that the model uses context is to enforce that each token it generates is “faithful” to the retrieved document. The authors propose first predicting a faithfulness score for each token. Then, during beam search, they retain only the beams that sample tokens resulting in one of the top-k most faithful sentences, as shown in the figure below.
 
 ![]({{ site.baseurl }}/assets/images/hallucinations-in-ralm/faithful-filtering.png){: .responsive-image style="--img-desktop:80%; --img-mobile:90%;"}
 
 [Source](https://arxiv.org/abs/2406.13692)
+
+To predict the faithfulness score the authors train a lightweight (such as MLP, XGBoost, or logistic regression) detector model on a small labelled dataset. This model makes predictions based on these four faithfulness-inducing features:
+
+- Minimum likelihood across all tokens in the generated sequence.
+- Entropy of the token predictive distribution.
+- KL divergence between token predictive distributions with and without context.
+- Semantic alignment between the context and the question (measured using an external alignment model).
