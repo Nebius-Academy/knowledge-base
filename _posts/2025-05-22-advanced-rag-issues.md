@@ -29,7 +29,7 @@ Following this direction, authors of [[RAG-studio](https://aclanthology.org/2024
 
 **Raw synthetic dataset creation**
 
-The input to RAG-Studio includes a domain corpus with multiple documents $\mathcal{D} = \\{c_1, \ldots, c_n\\}$~, a general LLM-based generator $G$, and a retriever $R$.  First, a generator $G$ is prompted to produce a query $x$ and its corresponding response $y$ based on a ground document $c_{\text{gold}}$ which is randomly selected from $\mathcal{D}$  (by design this document will be the most relevant “golden” context for the produced query):
+The input to RAG-Studio includes a domain corpus with multiple documents $\mathcal{D} = \\{c_1, \ldots, c_n\\}~,$ a general LLM-based generator $G$, and a retriever $R$.  First, a generator $G$ is prompted to produce a query $x$ and its corresponding response $y$ based on a ground document $c_{\text{gold}}$ which is randomly selected from $\mathcal{D}$  (by design this document will be the most relevant “golden” context for the produced query):
 
 $$
 x, y = G\left(
