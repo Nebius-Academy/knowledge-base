@@ -25,7 +25,13 @@ Retrieval Augmented Language Models (RALMs) are designed to reduce the risk of h
 
 ## Issues during context retrieval
 
-Hallucinations in language models can stem from issues during the retrieval process. Users may formulate ill-posed queries [Self-RAG](https://arxiv.org/abs/2310.11511). External documents sources can contain contaminated information [Contaminated data for RAG](https://arxiv.org/abs/2404.10496). Because of imperfect chunking [On retrieval granularity](https://arxiv.org/abs/2312.06648) or embedding [Better embeddings](https://arxiv.org/abs/2402.12177) retrievers may select irrelevant documents, which introduces inaccuracies into the generated output. Even when the retrieved context is accurate, irrelevant noise within the documents can negatively affect the results [Noisy context](https://arxiv.org/abs/2401.14887). Additionally, when the retrieved context contains excessive redundant information, models may fail to focus on critical details. This is especially problematic with long texts, where LLMs are known to skip the information in the middle of the context (see [Lost in the middle](https://arxiv.org/abs/2307.03172)).
+Hallucinations in language models can stem from various issues during the retrieval process: 
+
+- Users may formulate ill-posed queries, see [Self-RAG](https://arxiv.org/abs/2310.11511).
+- External documents sources can contain contaminated information, see [Contaminated data for RAG](https://arxiv.org/abs/2404.10496).
+- Because of imperfect chunking ([On retrieval granularity](https://arxiv.org/abs/2312.06648)) or embedding ([Better embeddings](https://arxiv.org/abs/2402.12177)) retrievers may select irrelevant documents, which introduces inaccuracies into the generated output.
+- Even when the retrieved context is accurate, irrelevant noise within the documents can negatively affect the results, see [Noisy context](https://arxiv.org/abs/2401.14887).
+- Additionally, when the retrieved context contains excessive redundant information, models may fail to focus on critical details. This is especially problematic with long texts, where LLMs are known to skip the information in the middle of the context, see [Lost in the middle](https://arxiv.org/abs/2307.03172).
 
 ## Issues during context utilization
 
