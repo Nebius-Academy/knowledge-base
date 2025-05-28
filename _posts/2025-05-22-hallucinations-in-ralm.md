@@ -9,7 +9,7 @@ permalink: /hallucinations-in-ralms/
 
 # What hallucinations are and why are they important?
 
-Language models sometimes generate text that is nonsensical or unrelated to the input, this phenomenon is known as hallucination [[Hallucinations survey 2022](https://arxiv.org/abs/2202.03629)]. For instance, [15–20% of ChatGPT responses were classified as hallucinations in 2023](https://www.datanami.com/2023/01/17/hallucinations-plagiarism-and-chatgpt/). A somewhat famous example of the hallucination by ChatGPT can be seen below:
+Language models sometimes generate text that is nonsensical or unrelated to the input, this phenomenon is known as hallucination [Hallucinations survey 2022](https://arxiv.org/abs/2202.03629). For instance, [15–20% of ChatGPT responses were classified as hallucinations in 2023](https://www.datanami.com/2023/01/17/hallucinations-plagiarism-and-chatgpt/). A somewhat famous example of the hallucination by ChatGPT can be seen below:
 
 ![]({{ site.baseurl }}/assets/images/hallucinations-in-ralm/hallucination-chatgpt.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
 
@@ -21,17 +21,17 @@ Although the mistake in the provided example might not seem so crucial, hallucin
 
 # RALMs don’t save from hallucinations
 
-Retrieval Augmented Language Models (RALMs) are designed to reduce the risk of hallucination caused by limited internal knowledge via incorporating large external knowledge bases during inference and equipping language models with up-to-date information. Despite this, RALMs can still produce hallucinations [[Failure modes of RAG](https://arxiv.org/abs/2401.05856), [Hallucinations survey 2023](https://arxiv.org/abs/2311.05232)].
+Retrieval Augmented Language Models (RALMs) are designed to reduce the risk of hallucination caused by limited internal knowledge via incorporating large external knowledge bases during inference and equipping language models with up-to-date information. Despite this, RALMs can still produce hallucinations [Failure modes of RAG](https://arxiv.org/abs/2401.05856), [Hallucinations survey 2023](https://arxiv.org/abs/2311.05232).
 
 ## Issues during context retrieval
 
-Hallucinations in language models can stem from issues during the retrieval process. Users may formulate ill-posed queries [[Self-RAG](https://arxiv.org/abs/2310.11511)]. External documents sources can contain contaminated information [[Contaminated data for RAG](https://arxiv.org/abs/2404.10496)]. Because of imperfect chunking [[On retrieval granularity](https://arxiv.org/abs/2312.06648)] or embedding [[Better embeddings](https://arxiv.org/abs/2402.12177)] retrievers may select irrelevant documents, which introduces inaccuracies into the generated output. Even when the retrieved context is accurate, irrelevant noise within the documents can negatively affect the results [[Noisy context](https://arxiv.org/abs/2401.14887)]. Additionally, when the retrieved context contains excessive redundant information, models may fail to focus on critical details. This is especially problematic with long texts, where LLMs are known to skip the information in the middle of the context (see [Lost in the middle](https://arxiv.org/abs/2307.03172)).
+Hallucinations in language models can stem from issues during the retrieval process. Users may formulate ill-posed queries [Self-RAG](https://arxiv.org/abs/2310.11511). External documents sources can contain contaminated information [Contaminated data for RAG](https://arxiv.org/abs/2404.10496). Because of imperfect chunking [On retrieval granularity](https://arxiv.org/abs/2312.06648) or embedding [Better embeddings](https://arxiv.org/abs/2402.12177) retrievers may select irrelevant documents, which introduces inaccuracies into the generated output. Even when the retrieved context is accurate, irrelevant noise within the documents can negatively affect the results [Noisy context](https://arxiv.org/abs/2401.14887). Additionally, when the retrieved context contains excessive redundant information, models may fail to focus on critical details. This is especially problematic with long texts, where LLMs are known to skip the information in the middle of the context (see [Lost in the middle](https://arxiv.org/abs/2307.03172)).
 
 ## Issues during context utilization
 
 Even when the retrieved context is ideal, such as manually retrieved and verified for accuracy, RALMs can still produce hallucinations. This occurs because the model may misread the context and make predictions that partially or fully disregard it.
 
-We define information learned by model during pre-training as parametric knowledge and information extracted from retrieved documents during inference as contextual knowledge. It has been shown that hallucinations in RALMs become more pronounced when parametric and contextual knowledge conflict with each other [[Parametric answer in context](https://arxiv.org/abs/2404.16032), [ClashEval](https://arxiv.org/abs/2404.10198)].
+We define information learned by model during pre-training as parametric knowledge and information extracted from retrieved documents during inference as contextual knowledge. It has been shown that hallucinations in RALMs become more pronounced when parametric and contextual knowledge conflict with each other [Parametric answer in context](https://arxiv.org/abs/2404.16032), [ClashEval](https://arxiv.org/abs/2404.10198).
 
 The figure below shows an example of such a conflict. Without context, the model gives the answer "Malaria" (in red). We call such answers parametric answers because they rely only on parametric knowledge. When provided with context, the model should change its answer to "Cholera" (in green), which is correct.
 
