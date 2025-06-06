@@ -177,7 +177,7 @@ $$
 where:
 
 - *N* is the number of parameters of our LLM,
-- *B* is the number of bytes used to store one parameter. For example, if the weights are stored in FP16 (16-bit floating-point) or BFLOAT16 (16-bit brain floating-point), *B* would be 2 bytes, as each parameter requires $2 = 16\,\mathrm{bits}/ 8\,\mathrm{bits\_per\_byte}$ bytes of storage.
+- *B* is the number of bytes used to store one parameter. For example, if the weights are stored in FP16 (16-bit floating-point) or BFLOAT16 (16-bit brain floating-point), *B* would be 2 bytes, as each parameter requires $2 = 16\,\text{bits}/ 8\,\text{bits_per_byte}$ bytes of storage.
 
 **Note**: For simplicity, we assume here that the context length is very short, so it can be ignored in future calculations.
 
@@ -196,7 +196,11 @@ Thus, for each parameter, we perform one multiplication and one addition. Since 
 Based on this, we can make a rough estimation of the LLM’s throughput. The formulas for calculating compute and memory movement times are:
 
 $$
-\mathrm{time\_of\_computations} = \frac{\mathrm{FLOP}}{\mathrm{GPU\_peak\_FLOPs}} \\ \ \\\mathrm{time\_of\_data\_movements} = \frac{M}{ \mathrm{GPU\_memory\_bandwidth}}
+\mathrm{time\_of\_computations} = \frac{\mathrm{FLOP}}{\mathrm{GPU\_peak\_FLOPs}}
+$$
+
+$$
+\mathrm{time\_of\_data\_movements} = \frac{M}{ \mathrm{GPU\_memory\_bandwidth}}
 $$
 
 ### The throughput
@@ -210,7 +214,11 @@ $$
 And we can also understand whether our inference is a memory bound or a compute-bound process:
 
 $$
-\mathrm{Memory\ bound}: \mathrm{time\_of\_computations} \ll \mathrm{time\_of\_data\_movements} \\ \mathrm{Compute\ bound}: \mathrm{time\_of\_computations} \gg \mathrm{time\_of\_data\_movements}
+\mathrm{Memory\ bound}: \mathrm{time\_of\_computations} \ll \mathrm{time\_of\_data\_movements}
+$$
+
+$$
+\mathrm{Compute\ bound}: \mathrm{time\_of\_computations} \gg \mathrm{time\_of\_data\_movements}
 $$
 
 These formulas give us an approximate yet powerful instrument to estimate the optimal batch size for our LLM.
@@ -229,13 +237,29 @@ Now we can explore the characteristics of working in memory-bound and compute-bo
 In this scenario, the hardware is not fully utilized because the calculations don’t take full advantage of the compute engines' power. As a result, while latency remains stable, throughput increases linearly with batch size.
 
 $$
-\mathbf{Memory\ bound}:\\ \mathrm{time\_of\_computations} \ll \mathrm{time\_of\_data\_movements} \\ \ \\\mathrm{throughput}_m(\mathrm{batch\_size}) = \frac{\mathrm{batch\_size}}{\mathrm{time\_of\_data\_movements}}\\ \ \\ \sim  \frac{\mathrm{batch\_size}}{ \mathrm{Const}}
+\mathbf{Memory\ bound}:\qquad \mathrm{time\_of\_computations} \ll \mathrm{time\_of\_data\_movements}
+$$
+
+$$
+\mathrm{throughput}_m(\mathrm{batch\_size}) = \frac{\mathrm{batch\_size}}{\mathrm{time\_of\_data\_movements}}
+$$
+
+$$
+\sim  \frac{\mathrm{batch\_size}}{ \mathrm{Const}}
 $$
 
 In the compute-bound regime throughput stays constant but latency increases:
 
 $$
-\mathbf{Compute\ bound}: \\\mathrm{time\_of\_computations} \gg \mathrm{time\_of\_data\_movements},\\ \ \\ \mathrm{throughput}_c(\mathrm{batch\_size}) = \frac{\mathrm{batch\_size}}{ \mathrm{time\_of\_computations}} =\\ \ \\=\mathrm{batch\_size} \cdot \frac{\mathrm{GPU\_peak\_FLOPs}}{2 \cdot N \cdot \mathrm{batch\_size}} = \frac{\mathrm{GPU\_peak\_FLOPs}}{2 \cdot N}
+\mathbf{Compute\ bound}: \qquad \mathrm{time\_of\_computations} \gg \mathrm{time\_of\_data\_movements},
+$$
+
+$$
+\mathrm{throughput}_c(\mathrm{batch\_size}) = \frac{\mathrm{batch\_size}}{ \mathrm{time\_of\_computations}} =
+$$
+
+$$
+=\mathrm{batch\_size} \cdot \frac{\mathrm{GPU\_peak\_FLOPs}}{2 \cdot N \cdot \mathrm{batch\_size}} = \frac{\mathrm{GPU\_peak\_FLOPs}}{2 \cdot N}
 $$
 
 Thus, the optimal batch size is the point on a graph where we can achieve maximum throughput with minimal latency. 
@@ -271,7 +295,7 @@ $$
 
 **An important note**. You may be surprised that the optimal batch size doesn’t depend on the model size, and this requires some additional explanation. Our calculations takes into account two things: the speed of GPU computations and the speed of delivering data from GPU memory to the compute engine. This means, however, that both the data and *the model weights are already stored in the GPU memory*. So, our estimate is correct for infinite GPU memory. In practice, a batch of size 430 may be too large, and in this case,
 
-$\mathrm{true\_optimal\_batch\_size} = \\\min(\mathrm{optimal\_batch\_size}, \\\mathrm{max\_size\_that\_fits\_into\_the\_GPU\_memory})$
+$\text{true_optimal_batch_size} = \min(\text{optimal_batch_size}, \text{max_size_that_fits_into_the_GPU_memory})$
 
 Even the LLM weights may be too large to fit into one GPU (imagine Llama 405B that would require at least 5 H100 GPUs to store weights only). For multi-GPU setup, the calculations become more tedious due to data channelling between GPUs.
 
@@ -294,7 +318,7 @@ Let's understand the inference cost of various LLM components.
 
 When we multiply two matrices
 
-$$\underscore{m\times n}{A} \cdot \underscore{n\times k}{B},$$
+$$\underset{m\times n}{A} \cdot \underset{n\times k}{B},$$
 
 for each of the $mk$ elements of the product, we need to perform $n$ multiplications and $n-1$ addition, totaling to $2n-1\approx 2n$ FLOPs
 
@@ -451,3 +475,6 @@ $$
 From here, we find that the optimal `batch_size` equals $−16.75$.
 
 ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/negative-batch-size-inference-is-cool.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
+
+
+  
