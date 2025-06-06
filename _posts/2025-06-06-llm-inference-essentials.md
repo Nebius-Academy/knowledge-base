@@ -295,7 +295,7 @@ $$
 
 **An important note**. You may be surprised that the optimal batch size doesn’t depend on the model size, and this requires some additional explanation. Our calculations takes into account two things: the speed of GPU computations and the speed of delivering data from GPU memory to the compute engine. This means, however, that both the data and *the model weights are already stored in the GPU memory*. So, our estimate is correct for infinite GPU memory. In practice, a batch of size 430 may be too large, and in this case,
 
-$\text{true_optimal_batch_size} = \min(\text{optimal_batch_size}, \text{max_size_that_fits_into_the_GPU_memory})$
+$\text{true_optimal_batch_size} = \min(\text{optimal_batch_size; max_size_that_fits_into_the_GPU_memory})$
 
 Even the LLM weights may be too large to fit into one GPU (imagine Llama 405B that would require at least 5 H100 GPUs to store weights only). For multi-GPU setup, the calculations become more tedious due to data channelling between GPUs.
 
@@ -324,7 +324,7 @@ for each of the $mk$ elements of the product, we need to perform $n$ multiplicat
 
 $$(AB)_{ij} = \sum_ta_{it}b_{tj}$$
 
-In total, we get $\approx. 2mnk$ FLOPs.
+In total, we get $\approx 2mnk$ FLOPs.
 
 ### Self-Attention
 
