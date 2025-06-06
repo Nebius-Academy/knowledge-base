@@ -1,8 +1,15 @@
+---
+layout: post
+title: "LLM Inference Essentials"
+categories: blog
+permalink: /llm-inference-essentials/
+---
+
 **By: [Sergei Skvortsov](https://www.linkedin.com/in/sergei-skvortsov/)**
 
 Up to this point, it’s natural to wonder: *How can I ensure I’m getting the most out of my LLM developments?*  In this lesson, and the following 2, you will delve into the essential concepts of inference, its metrics, and the underlying mathematics, which are crucial for developing and optimizing LLMs. Understanding these concepts is vital for efficiently deploying LLMs, as it enables you to measure and improve their performance, ensuring they meet the desired standards for various applications. By mastering these topics, you'll be equipped with the knowledge needed to make informed decisions about model deployment, resource allocation, and overall system efficiency.
 
-# Inference Essentials
+# Introduction to LLM Inference
 
 In the context of LLMs, **inference** is the process where the model takes in a given input (like a sentence or a question) and generates an output (like a response or a continuation of the text). It relies heavily on GPU acceleration and many optimization tricks to handle the intensive computations.
 
