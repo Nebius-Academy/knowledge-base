@@ -8,7 +8,15 @@ permalink: /llm-inference-essentials/
 
 **By: [Sergei Skvortsov](https://www.linkedin.com/in/sergei-skvortsov/)**
 
-Up to this point, it’s natural to wonder: *How can I ensure I’m getting the most out of my LLM developments?*  In this lesson, and the following 2, you will delve into the essential concepts of inference, its metrics, and the underlying mathematics, which are crucial for developing and optimizing LLMs. Understanding these concepts is vital for efficiently deploying LLMs, as it enables you to measure and improve their performance, ensuring they meet the desired standards for various applications. By mastering these topics, you'll be equipped with the knowledge needed to make informed decisions about model deployment, resource allocation, and overall system efficiency.
+Up to this point, it’s natural to wonder: *How can I ensure I’m getting the most out of my LLM developments?*  In this long read, we’ll unpack the core ideas behind inference — including its metrics and mathematical foundations — that are key to optimizing performance. With this understanding, you'll be better prepared to make smart decisions about deployment strategies, resource optimization, and system design.
+
+The plan is:
+
+1. **Inference Essentials**. In this section, we'll discuss key concepts of LLM inference and working with GPUs.
+
+2. **Inference Essentials**. In this section, we'll discuss latency and throughput and finding balance between them.
+
+3. **Inference Math**. In this section, we'll use our knowledge of transformer architectures to determine the optimal batch size for the inference of Llama-3.1-8B, and we'll be surprised with our findings.
 
 # Inference Essentials
 
@@ -82,9 +90,9 @@ It’s important to note that to achieve peak FLOPS, the operation must fully ut
 
 # Inference metrics
 
-## Inference Metrics Overview
+Evaluating inference is crucial for understanding how LLMs perform in your scenarios and for guiding their optimization. It helps identify performance bottlenecks, manage trade-offs, and adapt models to meet specific requirements for speed, scale, and cost. 
 
-Measuring inference is essential for understanding and optimizing the performance of LLMs in real-world applications. Inference metrics provide critical insights into how efficiently a model processes data, how quickly it responds to user requests, and the resources required for deployment. These measurements are key to identifying bottlenecks, balancing trade-offs, and tailoring models to specific use cases, ensuring that they meet performance, scalability, and budgetary requirements. By systematically evaluating inference, organizations can make informed decisions to maximize the impact of their AI systems
+## Inference Metrics Overview
 
 There are three important metrics:
 
@@ -142,24 +150,26 @@ An important point here is that when the model is in the memory-bound area, its 
 
 The **peak throughput** is the maximum throughput the model can achieve. It depends on several factors, including the model's architecture, size, and the underlying hardware. Understanding how to calculate peak throughput involves analyzing the model’s computational demands and the capabilities of the hardware. We will explore this in detail shortly.
 
-
 # LLM inference math
 
-Let’s discuss how to estimate LLM inference speed and optimal throughput based on the characteristics of both the LLM and the GPU.
+In the previous section, we understood how to find batch size that optimally balances latency and throughput - it's the size for which computation speed becomes equal to memory movement speed. Now, we'll assess it for a particular LLM and a particular GPU model. And for that, we'll need to get our hands dirty with math.
 
 First, let’s examine what is typically stored in GPU memory during LLM inference:
 
 - **LLM weights (parameters)**. This space is reserved for storing all the model parameters. The required memory size depends on the number of parameters and the floating-point precision used to store them. Parameters are often stored and used in FLOAT16 or BFLOAT16, unless quantized.
+
 - **KV-cache**. Stores keys and values for previous tokens to avoid recalculating them again an again. At the **prompt processing** stage, prompt tokens are processed in one forward pass, and the corresponding KV-cache entries are filled. At the **autoregressive generation** stage, cache is used for new computations and updated with keys and values of the last token, each time.
-    Cache size increases linearly with context length and with batch size. Its size also depends on floating-point precision.
+
+  Cache size increases linearly with context length and with batch size. Its size also depends on floating-point precision.
     
 - **Activations:** This part of the memory is used to store intermediate data (neural network activations) during the current iteration of the LLM. The memory size required for activations depends on the framework implementation and the floating-point precision used.
     
-    Usually we assume it as constant and don’t consider in calculation
+  Usually we assume it as constant and don’t consider in calculation
     
 In the remaining part of this section we'll make two takes towards computing the optimal batch size for a particular LLM and a particular GPU type:
 
 1. For the first take, we'll draft an approximate calculation ignoring KV-cache and LLM's architectural details.
+
 2. For the second take, we'll try to take into account as much as we can, only leaving activations behind.
 
 And the results will surprise us.
@@ -476,5 +486,8 @@ From here, we find that the optimal `batch_size` equals $−16.75$.
 
 ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/negative-batch-size-inference-is-cool.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
 
+What does this result mean? To understand it, let's plot how FLOPs and data movement time behave as the batch size grows:
 
-  
+![]({{ site.baseurl }}/assets/images/llm-inference-essentials/why-negative-batch-size.png){: .responsive-image style="--img-desktop:70%; --img-mobile:90%;"}
+
+You can see that memory movement time grows faster than compute, so the LLM always stays in a memory bound regime.  
