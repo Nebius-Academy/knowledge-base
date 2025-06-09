@@ -14,19 +14,19 @@ The plan is:
 
 1. **Inference Essentials**. In this section, we'll discuss key concepts of LLM inference and working with GPUs.
 
-2. **Inference Essentials**. In this section, we'll discuss latency and throughput and finding balance between them.
+2. **Inference Metrics**. In this section, we'll discuss latency and throughput and finding balance between them.
 
-3. **Inference Math**. In this section, we'll use our knowledge of transformer architectures to determine the optimal batch size for the inference of Llama-3.1-8B, and we'll be surprised with our findings.
+3. **Inference Math**. In this section, we'll use our knowledge of transformer architectures to determine the optimal batch size for inference, taking Llama-3.1-8B as our example. We anticipate our findings will be quite surprising!
 
 # Inference Essentials
 
-In the context of LLMs, **inference** is the process where the model takes in a given input (like a sentence or a question) and generates an output (like a response or a continuation of the text). It relies heavily on GPU acceleration and many optimization tricks to handle the intensive computations.
+In the context of LLMs, **inference** is the process where the model takes in a given input (like a sentence or a question) and generates an output (like a response or a continuation of the text). It relies heavily on GPU acceleration and many optimization tricks to handle the intensive computations. Inference should be distinguished from **training** - during inference we don't update weights and, in particular, don't need gradients.
 
 In Topic 4, we discuss how inference operates and what are potential bottlenecks. In Topic 5, we'll be covering optimizations that make inference more efficient.
 
 ## Inference Process
 
-You can think of inference as the model's way of *"thinking"* and producing answers based on the patterns and knowledge it has learned during training. During inference, the model's parameters (weights and biases) are used to process the input and generate the output. In simple terms, **weights** determine the importance of each input feature, kind of like highlighting the key points in a text. **Biases**, on the other hand, help adjust the output along the way, ensuring it's accurate and relevant. Together, these parameters play a vital role in how the model understands the input and generates responses.
+You can think of inference as the model's way of *"thinking"* and producing answers based on the patterns and knowledge it has learned during training. During inference, the model's parameters (weights and biases) are used to process the input and generate the output.
 
 Here is a schematic overview of the LLM inference steps:
 
@@ -67,9 +67,9 @@ For our purposes, we need to focus on the following:
 
 - **Peak FLOPS**: This refers to how many floating-point operations (such as multiplication and addition) the GPU can perform per second. These values can vary depending on the precision of the model’s weights, meaning how many bits are used to store each parameter.
     
-    For inference, FP16 and BFLOAT16 are commonly used, which are formats for storing floating-point numbers in 16 bits of memory.
+    For inference, FLOAT16 (FP16) or  BFLOAT16 (BF16) are commonly used, which are formats for storing floating-point numbers in 16 bits of memory.
     
-    For the H100 GPU, the peak FLOPS for FP16 and BFLOAT16 is 1,979 or 1,671 teraFLOPS depending on the configuration. Nebius serves H100 NVL, so we will use this number in further calculations.
+    For the H100 GPU, the peak FLOPS for FP16 and BF16 is 1,979 or 1,671 teraFLOPS depending on the configuration. Nebius serves H100 NVL, so we will use this number in further calculations.
     
 - **GPU memory size**: This is the total amount of memory available on the GPU. For the H100, depending on the model, it can be either 80 GB or 94 GB.
 - **GPU memory bandwidth**: This is the maximum speed at which data can be transferred between the compute engine (or CUDA cores) and the GPU memory. It determines how quickly data can be loaded or stored during computation.
@@ -80,7 +80,7 @@ To produce goods, raw materials must be transported from a warehouse (GPU memory
 
 ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/factory-metaphor.png){: .responsive-image style="--img-desktop:70%; --img-mobile:90%;"}
 
-Keeping this in mind, let’s return to how GPUs work. A typical GPU consists of GPU memory (or HBM) and multiple streaming multiprocessors (SMs). An SM is like a large factory with small local storage and several conveyor belts or furnaces (CUDA cores) that can work simultaneously, but should all perform the same computation.
+Keeping this in mind, let’s return to how GPUs work. A typical GPU consists of GPU memory (or HBM) and multiple streaming multiprocessors (SMs). An SM is like a large furnace with small local storage and several conveyor belts or furnaces (CUDA cores) that can work simultaneously, but should all perform the same computation. Once the factory receives the materials, it distributes them to its furnaces which process them in parallel.
 
 To perform operations, data must first be loaded from the GPU memory (turquoise colour) into the local memory (or SRAM) of each SM (purple colour) at the speed determined by the GPU memory bandwidth (orange). Then, all compute engines (or CUDA cores) within the SMs process the data simultaneously. Once the computation is complete, the results are stored back in the GPU memory.
 
@@ -126,7 +126,7 @@ The main difference between these two types of programs is as follows:
 
 - **Memory-bound program**: Its execution time primarily depends on the speed of data movement. An example of a memory-bound program is matrix transpose. This task involves loading the data into the compute engine, transposing it, and saving it back to memory. Since transposition is a very simple calculation, the operation’s total time is dominated by the time it takes to move the matrix in and out of memory.
     
-    Enhancing performance for memory-bound programs typically involves increasing memory bandwidth.
+    Enhancing performance for memory-bound programs typically involves increasing memory bandwidth or reducing the transferred amount of data.
     
     In the factory metaphor, this would be a factory with fast processing but slower delivery of raw materials from the warehouse.
     
@@ -168,9 +168,9 @@ First, let’s examine what is typically stored in GPU memory during LLM inferen
     
 In the remaining part of this section we'll make two takes towards computing the optimal batch size for a particular LLM and a particular GPU type:
 
-1. For the first take, we'll draft an approximate calculation ignoring KV-cache and LLM's architectural details.
+1. For the first take, we'll draft an approximate calculation ignoring KV-cache and LLM's architectural details. We assume here that we work with relatively low context sizes, so that KV-cache size $\ll$ weights size.
 
-2. For the second take, we'll try to take into account as much as we can, only leaving activations behind.
+2. For the second take, we'll try to take into account as much as we can, leaving behind only activations and....
 
 And the results will surprise us.
 
@@ -178,7 +178,7 @@ And the results will surprise us.
 
 ### Memory movement
 
-Let’s estimate the amount of memory movement required to generate a single token. For a basic approximation, we assume that generating one token requires loading all of the LLM’s weights into the compute engine. This means that the memory movement, $M$, can be estimated using the following formula:
+Let’s estimate the amount of memory movement required to generate a single token. For a basic approximation, we assume that generating one token requires loading all of the LLM’s weights into the compute engine. (Again, we assume that KV-cache size $\ll$ weights size.) This means that the memory movement, $M$, can be estimated using the following formula:
 
 $$
 M = N \cdot B
@@ -187,7 +187,7 @@ $$
 where:
 
 - *N* is the number of parameters of our LLM,
-- *B* is the number of bytes used to store one parameter. For example, if the weights are stored in FP16 (16-bit floating-point) or BFLOAT16 (16-bit brain floating-point), *B* would be 2 bytes, as each parameter requires $2 = 16\,\text{bits}/ 8\,\text{bits_per_byte}$ bytes of storage.
+- *B* is the number of bytes used to store one parameter. For example, if the weights are stored in FP16 (16-bit floating-point) or BFLOAT16 (16-bit brain floating-point) - which is usually the case for LLMs - *B* would be 2 bytes, as each parameter requires $2 = 16\,\text{bits}/ 8\,\text{bits_per_byte}$ bytes of storage.
 
 **Note**: For simplicity, we assume here that the context length is very short, so it can be ignored in future calculations.
 
@@ -237,7 +237,7 @@ These formulas give us an approximate yet powerful instrument to estimate the op
 
 Let’s return to the performance plane again.
 
-![]({{ site.baseurl }}/assets/images/llm-inference-essentials/throughtput-batch-size-plane.png){: .responsive-image style="--img-desktop:70%; --img-mobile:90%;"}
+![]({{ site.baseurl }}/assets/images/llm-inference-essentials/throughtput-batch-size-plane1.png){: .responsive-image style="--img-desktop:70%; --img-mobile:90%;"}
 
 Now we can explore the characteristics of working in memory-bound and compute-bound regimes. When an LLM operates in a memory-bound regime, its latency remains relatively constant. This happens for two reasons:
 
@@ -282,8 +282,6 @@ But first, let’s step back and return to our factory and warehouse analogy. Im
 
 As you can see, the point at which all furnaces are in use is the point of optimal batch size.
 
-
-In mathematical terms, the optimal batch size is the point where:
 
 In mathematical terms, the optimal batch size is the point where:
 
