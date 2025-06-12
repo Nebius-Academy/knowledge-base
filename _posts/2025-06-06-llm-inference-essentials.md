@@ -360,9 +360,9 @@ Let's go through the components. For the sake of simplicity, we'll calculate flo
 
   Over `num_heads` heads, the first stage requires
 
-  $$2\cdot\text{l_prompt}\cdot\text{head_dim}\cdot\text{\color{red}{l_prompt}}\cdot\text{num_heads}\leqslant$$
+  $$2\cdot\text{l_prompt}\cdot\text{head_dim}\cdot\text{l_prompt}\cdot\text{num_heads}\leqslant$$
 
-  $$\leqslant 2\cdot\text{l_prompt}\cdot\text{\color{red}{seq_len}}
+  $$\leqslant 2\cdot\text{l_prompt}\cdot\text{seq_len}
   \cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}\quad{(P)}$$
   
 
@@ -372,11 +372,11 @@ Let's go through the components. For the sake of simplicity, we'll calculate flo
 
   $$\leqslant 2\cdot\text{head_dim}\cdot\text{seq_len}\cdot\text{num_heads}=$$
 
-  $$=2\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}$$
+  $$=2\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}$$
 
   We generate `l_completion` tokens, which gives in total
 
-$$2\text{l_completion}\cdot\mathbf{seq_len}\cdot\text{attn_hid_dim}\text{ FLOPs}\quad{(C)}$$
+$$2\text{l_completion}\cdot\text{seq_len}\cdot\text{attn_hid_dim}\text{ FLOPs}\quad{(C)}$$
 
   Combining (P) and (C), we get the following upper estimate:
 
@@ -409,7 +409,7 @@ We'll perform calculation for the most popular architecture to date, the gated M
 The computation is dominated by three matrix multiplications, each `(seq_len, hid_size) x (hid_size, intermediate_size)` or `(hid_size, intermediate_size) x (seq_len, hid_size)`, which gives in total
 
 $$
-C_{\text{FFN}} = 6\text{seq_len}\cdot\text{intermediate_size}\cdot\text{hid_size}\text{  FLOPs}
+C_{\text{FFN}} = 6\cdot\text{seq_len}\cdot\text{intermediate_size}\cdot\text{hid_size}\text{  FLOPs}
 $$
 
 ### Embedding and unembedding layers
@@ -417,7 +417,7 @@ $$
 Embedding layer is just a lookup table, so its computational cost is negligible. The unembedding layer performs matrix multiplication `(seq_len, hid_dim) x (hid_dim, vocab_size)`, which gives
 
 $$
-C_{\text{unemb}} = 2\text{seq_len}\cdot\text{hid_dim}\cdot\text{vocab_size}\text{  FLOPs}
+C_{\text{unemb}} = 2\cdot\text{seq_len}\cdot\text{hid_dim}\cdot\text{vocab_size}\text{  FLOPs}
 $$
 
 ### Getting all together
