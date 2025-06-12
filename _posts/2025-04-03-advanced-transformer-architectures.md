@@ -7,6 +7,12 @@ permalink: /transformer-architectures/
 
 In this long read, we'll discuss some of the milestones of transformer architecture development, which has shaped how today's LLM are built.
 
+# A short recap
+
+Before we start, let's briefly recall the overall transformer architecture.
+
+A transformer
+
 # MLP (FFN)
 
 A feedforward block in a transformer is often a two-layer MLP, which originally had ReLU activation:
@@ -132,7 +138,7 @@ Despite being described as totally separate layers, in reality, attention heads 
 
   $$q_{total} = xW_Q,$$
 
-  and after that the row vector $q_{total}$ is cut into $n\_heads$ row vectors $q_1, q_2,\ldots, q_{\text{n\_heads}}$.
+  and after that the row vector $q_{total}$ is cut into $\text{n_heads}$ row vectors $q_1, q_2,\ldots, q_{\text{n\_heads}}$.
 
 - So, for example, if Llama3-8B has a model dimension (=hidden size) 4,096 and 32 attention heads, then each attention head's query has a dimension of $\frac{4096}{32} = 128$.
 
