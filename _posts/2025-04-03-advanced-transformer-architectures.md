@@ -111,8 +111,11 @@ $$
 $$
 
 $$
-\hat x_i \;=\;\frac{x_i - \mu}{\sqrt{\sigma^2 + \epsilon}}\,,\quad 
-\mathrm{LayerNorm}(x)_i \;=\;\gamma_i\,\hat x_i \;+\;\beta_i,
+\widehat{x}_i =\frac{x_i - \mu}{\sqrt{\sigma^2 + \epsilon}}
+$$
+
+$$
+\mathrm{LayerNorm}(x)_i =\gamma_i\widehat{x}_i +\beta_i,
 $$
 
 where $\epsilon$ (typically $10^{-6}$) ensures numerical stability, and $\gamma,\beta\in\mathbb{R}^d$ are learned per-feature scale and shift parameters.  
@@ -186,17 +189,19 @@ Despite being described as totally separate layers, in reality, attention heads 
 
   and after that the row vector $q_{total}$ is cut into $\text{n_heads}$ row vectors $q_1, q_2,\ldots, q_{\text{n\_heads}}$.
 
-- So, for example, if Llama3-8B has a model dimension (=hidden size) 4,096 and 32 attention heads, then each attention head's query has a dimension of $\frac{4096}{32} = 128$.
+- So, for example, if Llama3.1-8B has a model dimension (=hidden size) 4,096 and 32 attention heads, then each attention head's query has a dimension of $\frac{4096}{32} = 128$.
 
-- I will not cover Llama's keys and values, because there are some additional considerations to this; see the Group Query Attention section for more details.
+  ![]({{ site.baseurl }}/assets/images/transformer-architectures/llama-3.1-chars.png){: .responsive-image style="--img-desktop:50%; --img-mobile:90%;"}
 
-# The story of attention
+Note that Llama 3.1 has less key and value heads than it has query heads. This is due to **Grouped Query Attention** that we'll discuss below.
+
+# A quest for efficient attention
 
 The attention mechanism is at the heart of every transformer, so it's not surprising that many variations of it emerged since 2017.
 
 The main problem with attention is its quadratic complexity, and indeed, each token must attend to each token. Moreover, standard procedure involves calculating the matrix $QK^T$ (product of matrix of all queries and the matrix of all keys) which can be very large. 
 
-The complexity of the attention mechanism is one of the main bottlenecks in the struggle towards large context length, and, as we’ll see, many of the improvements noted below are aimed towards making attention a little more lightweight.
+The complexity of the attention mechanism is one of the main bottlenecks in the struggle towards large context length, and, as we’ll see, many of the improvements noted below are aimed towards making attention a little more lightweight and efficient.
 
 ## Sliding window attention
 
@@ -220,11 +225,61 @@ The next step was suggested in [GQA: Training Generalized Multi-Query Transforme
 
 [Source](https://arxiv.org/pdf/2305.13245.pdf5)
 
-Now we can return to Llama-3; if we look at this [technical report](https://arxiv.org/pdf/2407.21783), it shows that “Key/Value Heads” is 8. Given that there are 32 attention heads (=how many queries), we see that there are 4 query heads per key/value. Moreover, with the attention head dimension of 128, we may see that the dimensions of the total $W_Q$ and $W_K$ are $\text{hidden\_dim}\times(128\cdot 8) = 4096\times1024.$
+Now we can return to Llama-3.1.
+
+![]({{ site.baseurl }}/assets/images/transformer-architectures/llama-3.1-chars.png){: .responsive-image style="--img-desktop:50%; --img-mobile:90%;"}
+
+For the 8B model, the table shows that the number of Key/Value Heads is 8. Given that there are 32 attention heads (=how many queries), we see that there are 4 query heads per key/value. Moreover, with the attention head dimension of 128, we may see that the dimensions of the total $W_Q$ and $W_K$ are $\text{hidden\_dim}\times(128\cdot 8) = 4096\times1024$.
 
 ## Key-Value caches
 
-Key-value caches are now a natural feature of almost every transformer model. They store keys and values (that is $k_i = x_iW_K$ and $v_j = x_jW_V$), allowing us not to recompute them each time. However this approach comes with a drawback of its own: memory consumption. For long sequences, the size of a KV-cache may become comparable with the size of the model itself.
+Key-value caches are now a natural feature of almost every transformer model. They store keys and values (that is $k_i = x_iW_K$ and $v_j = x_jW_V$), allowing us not to recompute them each time we need to generate the next token.
+
+![]({{ site.baseurl }}/assets/images/transformer-architectures/kv-cache.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+
+However this approach comes with a drawback of its own: memory consumption. For long sequences, the size of a KV-cache may become comparable with the size of the model itself. This, in turn, motivates researchers to find ways of reducing the size of the KV-cache. This is generally out of this long read's scope, but we'll share a couple of references in case if you're curious:
+
+* **Compression along the sequence length**
+  - [H2O](https://arxiv.org/pdf/2306.14048v1)
+  - [No tokens left behind](https://arxiv.org/pdf/2402.18096v1)
+
+* **Compression across the layers**
+  - [Layer-Condensed KV Cache](https://arxiv.org/pdf/2405.10637)
+ 
+## Leveraging the infrastructure: Flash attention and Ring attention
+
+The previous improvements we discussed were hardware-agnostic ???
+
+Introduced in [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/pdf/2205.14135.pdf), FlashAttention, together with its descendants, became 
+
+The authors don't actually propose a new attention mechanism. Instead, they leverage hardware capabilities.
+
+GPU Memory Hierarchy:
+\begin{itemize}
+\item high bandwidth memory (HBM), slower but larger;
+\item on-chip SRAM, faster but smaller.
+\end{itemize}
+
+As compute has gotten faster relative to memory speed, operations are increasingly bottlenecked by memory (HBM) accesses. Thus, exploiting fast SRAM becomes more important.
+
+\textbf{Idea}: do blockwise operations, compute on SRAM. But be aware that it only works on sufficiently advanced GPUs.
+
+\begin{center}
+\includegraphics[width=10cm]{flash-attention.png}
+\end{center}
+
+Tri Dao, the first author of FlashAttention later published further improvement of this algorithm: \href{https://arxiv.org/pdf/2307.08691.pdf}{FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning}. It is really efficient and widely used now to the extent that proposing new modifications of attention mechanish is running of out fashion: FlashAttention-2 gives better out-of-the box performance than almost any new attention scheme that doesn't work with FlashAttention-2.
+
+In July '24 Tri Dao and his colleagues published even more efficient \href{https://tridao.me/publications/flash3/flash3.pdf}{FlashAttention-3}, optimized for H100.
+
+\bigskip
+
+FlashAttention has several drawbacks as well:
+\begin{itemize}
+    \item It doesn't work with just any GPU;
+    \item Even with the right GPU, you can just fail to make it work on you virtual machine;
+    \item It's incompatible with some other nice things.
+\end{itemize}
 
 # Positional encoding
 
