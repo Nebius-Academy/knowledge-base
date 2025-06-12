@@ -360,9 +360,9 @@ Let's go through the components. For the sake of simplicity, we'll calculate flo
 
   Over `num_heads` heads, the first stage requires
 
-  $$2\cdot\text{l_prompt}\cdot\text{head_dim}\cdot\text{l_prompt}\cdot\text{num_heads}\leqslant$$
+  $$2\cdot\text{l_prompt}\cdot\text{head_dim}\cdot\mathbf{l\_prompt}\cdot\text{num_heads}\leqslant$$
 
-  $$\leqslant 2\cdot\text{l_prompt}\cdot\text{seq_len}
+  $$\leqslant 2\cdot\text{l_prompt}\cdot\mathbf{seq\_len}
   \cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}\quad{(P)}$$
   
 
@@ -372,7 +372,7 @@ Let's go through the components. For the sake of simplicity, we'll calculate flo
 
   $$\leqslant 2\cdot\text{head_dim}\cdot\text{seq_len}\cdot\text{num_heads}=$$
 
-  $$=2\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}$$
+  $$=2\text{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}$$
 
   We generate `l_completion` tokens, which gives in total
 
