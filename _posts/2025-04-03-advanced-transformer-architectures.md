@@ -267,20 +267,17 @@ The idea is to fuse the whole attention computation $(Q, K, V)\mapsto\text{softm
 
 Tri Dao, the first author of FlashAttention later published further improvement of this algorithm: \href{https://arxiv.org/pdf/2307.08691.pdf}{FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning}. It is really efficient and widely used now to the extent that proposing new modifications of attention mechanish is running of out fashion: FlashAttention-2 gives better out-of-the box performance than almost any new attention scheme that doesn't work with FlashAttention-2.
 
-![]({{ site.baseurl }}/assets/images/transformer-architectures/flash-attention-2){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+![]({{ site.baseurl }}/assets/images/transformer-architectures/flash-attention-2.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
 
 In July '24 Tri Dao and his team published even more efficient \href{https://tridao.me/publications/flash3/flash3.pdf}{FlashAttention-3}, optimized for H100.
 
-![]({{ site.baseurl }}/assets/images/transformer-architectures/flash-attention-3){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+![]({{ site.baseurl }}/assets/images/transformer-architectures/flash-attention-3.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
 
-\bigskip
+FlashAttention and its descendants have several drawbacks as well:
 
-FlashAttention has several drawbacks as well:
-\begin{itemize}
-    \item It doesn't work with just any GPU;
-    \item Even with the right GPU, you can just fail to make it work on you virtual machine;
-    \item It's incompatible with some other nice things.
-\end{itemize}
+- It doesn't work with just any GPU;
+- Even with the right GPU, you can just fail to make it work on you virtual machine;
+- It's incompatible with some other nice things.
 
 # Positional encoding
 
