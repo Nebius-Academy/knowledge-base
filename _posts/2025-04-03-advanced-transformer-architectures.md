@@ -187,7 +187,7 @@ Despite being described as totally separate layers, in reality, attention heads 
 
   $$q_{total} = xW_Q,$$
 
-  and after that the row vector $q_{total}$ is cut into $\text{n_heads}$ row vectors $q_1, q_2,\ldots, q_{\text{n\_heads}}$.
+  and after that the row vector $q_{total}$ is cut into $\text{n_heads}$ row vectors $q_1, q_2,\ldots, q_{\text{n_heads}}$.
 
 - So, for example, if Llama3.1-8B has a model dimension (=hidden size) 4,096 and 32 attention heads, then each attention head's query has a dimension of $\frac{4096}{32} = 128$.
 
@@ -229,7 +229,7 @@ Now we can return to Llama-3.1.
 
 ![]({{ site.baseurl }}/assets/images/transformer-architectures/llama-3.1-chars.png){: .responsive-image style="--img-desktop:50%; --img-mobile:90%;"}
 
-For the 8B model, the table shows that the number of Key/Value Heads is 8. Given that there are 32 attention heads (=how many queries), we see that there are 4 query heads per key/value. Moreover, with the attention head dimension of 128, we may see that the dimensions of the total $W_Q$ and $W_K$ are $\text{hidden\_dim}\times(128\cdot 8) = 4096\times1024$.
+For the 8B model, the table shows that the number of Key/Value Heads is 8. Given that there are 32 attention heads (=how many queries), we see that there are 4 query heads per key/value. Moreover, with the attention head dimension of 128, we may see that the dimensions of the total $W_Q$ and $W_K$ are $\text{hidden_dim}\times(128\cdot 8) = 4096\times1024$.
 
 ## Key-Value caches
 
@@ -246,31 +246,32 @@ However this approach comes with a drawback of its own: memory consumption. For 
 * **Compression across the layers**
   - [Layer-Condensed KV Cache](https://arxiv.org/pdf/2405.10637)
  
-## Leveraging the infrastructure: Flash attention and Ring attention
+## Leveraging the infrastructure: Flash attention
 
-The previous improvements we discussed were hardware-agnostic ???
+The previous improvements we discussed were hardware-agnostic; now it's time to briefly discuss how leveraging GPU architecture can help.
 
-Introduced in [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/pdf/2205.14135.pdf), FlashAttention, together with its descendants, became 
+Introduced in [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/pdf/2205.14135.pdf), FlashAttention, together with its descendants, became a state of the art attention optimization.
 
-The authors don't actually propose a new attention mechanism. Instead, they leverage hardware capabilities.
+Instead of proposing a new attention mechanism, the authors leverage hardware capabilities - in particular the GPU memory hierarcy, which comprises:
 
-GPU Memory Hierarchy:
-\begin{itemize}
-\item high bandwidth memory (HBM), slower but larger;
-\item on-chip SRAM, faster but smaller.
-\end{itemize}
+- high bandwidth memory (**HBM**), slower but larger;
+- on-chip **SRAM**, faster but smaller.
 
 As compute has gotten faster relative to memory speed, operations are increasingly bottlenecked by memory (HBM) accesses. Thus, exploiting fast SRAM becomes more important.
 
-\textbf{Idea}: do blockwise operations, compute on SRAM. But be aware that it only works on sufficiently advanced GPUs.
+The idea is to fuse the whole attention computation $(Q, K, V)\mapsto\text{softmax}\left[\text{Mask}\left(QK^T/\sqrt{d}\right)\right]V$ into a single tiled GPU kernel, avoiding materializing the full attention matrix. But be aware that it only works on sufficiently advanced GPUs.
 
-\begin{center}
-\includegraphics[width=10cm]{flash-attention.png}
-\end{center}
+![]({{ site.baseurl }}/assets/images/transformer-architectures/flash-attention.png){: .responsive-image style="--img-desktop:50%; --img-mobile:90%;"}
+
+[Source](https://arxiv.org/pdf/2205.14135)
 
 Tri Dao, the first author of FlashAttention later published further improvement of this algorithm: \href{https://arxiv.org/pdf/2307.08691.pdf}{FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning}. It is really efficient and widely used now to the extent that proposing new modifications of attention mechanish is running of out fashion: FlashAttention-2 gives better out-of-the box performance than almost any new attention scheme that doesn't work with FlashAttention-2.
 
-In July '24 Tri Dao and his colleagues published even more efficient \href{https://tridao.me/publications/flash3/flash3.pdf}{FlashAttention-3}, optimized for H100.
+![]({{ site.baseurl }}/assets/images/transformer-architectures/flash-attention-2){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+
+In July '24 Tri Dao and his team published even more efficient \href{https://tridao.me/publications/flash3/flash3.pdf}{FlashAttention-3}, optimized for H100.
+
+![]({{ site.baseurl }}/assets/images/transformer-architectures/flash-attention-3){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
 
 \bigskip
 
@@ -283,11 +284,15 @@ FlashAttention has several drawbacks as well:
 
 # Positional encoding
 
-The attention mechanism is cool, but it doesn't take into account token order. To add this information, the original transformer paper suggested using absolute positional encoding: this is a special vector for each position number $i$ that is added to the token embedding.
+The non-masked attention mechanism used in encoder-only models is oblivious to token order - every token "attends" to every token, turning the model basically into a clever Bag of Words. To fix that, **Positional encoding** was suggested.
+
+With LLMs, the problem is not that acute thanks to masked attention. Indeed, the fact that every token only "attends" to itself and the previous ones, introduces some degree of order understanding into the model. That's why LLMs with a lack of position encoding whatsoever (a mechanism known as **NoPE** - No Positional Encoding) aren't totally a failure. Though, even for LLM things are bettwer with some positional encoding. So, let's discuss the existing mechanisms.
+
+## Absolute positional encoding
+
+The original transformer paper suggested using absolute positional encoding: this is a special vector for each position number $i$ that is added to the token embedding.
 
 ![]({{ site.baseurl }}/assets/images/transformer-architectures/posit-encoding.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
-
-In this section, we'll discuss how we can improve this mechanism.
 
 ## Relative positional encoding
 
@@ -392,7 +397,9 @@ $$\theta_i = 10000^{-2(i-1)/d}$$
 
 [Source](https://arxiv.org/pdf/2104.09864v5.pdf)
 
-**Linearized attention**. Actually, in the RoPE paper, the attention mechanism’s formulation is a bit peculiar, and it is inspired by the [Transformers are RNNs](https://arxiv.org/pdf/2006.16236.pdf) paper. Let's dive into it. The typical mechanism that operates with queries $q_n$, keys $k_n$ and values $v_n$ transforms values as follows:
+## Linearized attention
+
+Actually, in the RoPE paper, the attention mechanism’s formulation is a bit peculiar, and it is inspired by the [Transformers are RNNs](https://arxiv.org/pdf/2006.16236.pdf) paper. Let's dive into it. The typical mechanism that operates with queries $q_n$, keys $k_n$ and values $v_n$ transforms values as follows:
 
 $$v_n' = \frac{\sum_{m=1}^N\mathrm{sim}(q_n, k_m)v_m}{\sum_{m=1}^N\mathrm{sim}(q_n, k_m)}\qquad(\ast)$$
 
@@ -428,11 +435,74 @@ $$\frac{\left(\psi(q_n)R^d_{\Theta, n}\right)\left(\phi(k_m)R^d_{\Theta, m}\righ
 
 no longer give a probabilistic distribution — but the authors claim that it's all right anyway.
 
+# RoPE and long context
+
+Today's LLMs have quite generous context lengths, like 128k, or 200k, or even 1M+. But they aren't pre-trained for 200k from the start! Indeed, training on long sequences is very taxing, so LLMs are usually pre-trained with **progressive context length**, like
+
+- First on sequences up to 8,192 tokens (and that may be the largest training bulk)
+- Then on sequences up to 16,384 tokens
+- Finally, after 3-5 stages like this, you arrive to the target 200k or 1M
+
+But now, there's a problem. Imagine that you've only trained your model on sequences of length $\leqslant8192$, so that that during the training it has only seen RoPE matrices with $0\leqslant m,n\leqslant8192$. It won't suddenly generalize for larger $m,n$. If you try to feed a longer sequence to such a model, you should expect poor results. So, you need to somehow extrapolate RoPE outside its comfortable range. Let's discuss how it is done.
+
+## Position interpolation
+
+One of the first solutions to this problem was suggested in this paper: [Extending context window of large language models via position interpolation](https://arxiv.org/pdf/2306.15595.pdf). The idea was that if we want to move from max context length $L$ to max context length $L'$, we can just shrink the new range $[0, L']$ to the old one $[0, L]$. So, we thus change this:
+$f_q(x_m, m) = x_mW_QR^d_{\Theta, m},\quad f_k(x_n, n) = x_nW_KR^d_{\Theta, n},$
+Into this:
+$f'_{q,k}(x_m, m) = f_{q,k}\left(x_m, \frac{mL}{L'}\right)$
+
+This picture demonstrates extrapolation (upper) vs. interpolation (lower):
+
+![]({{ site.baseurl }}/assets/images/transformer-architectures/pos-interpolation.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
+
+Why is it called interpolation? Instead of *extrapolating* $f(x_m, m)$ outside of the comfortable $[0, L]$ we need to *interpolate* it for non-integer values $\frac{mL}{L'}$. Experiments show that this works better.
+
+## The “NTK-aware" method
+
+First of all, let's write a generalized form of RoPE. We had $f_{q,k}(x_m, m, \Theta) = x_mW_{Q,K}R^d_{\Theta, m}$, where $\theta_j = b^{-2j/d}$ with **base** $b = 10000$.
+
+Now let's write $f_{q,k}(x_m, g(m), h(\Theta))$, where $g$ and $h$ can be some functions.
+
+For ordinary position interpolation we have
+$g(m) = \frac{m}{s},\quad h(\Theta) = \Theta,$
+where $s = \frac{L'}{L}$. .
+
+**What can be a problem with interpolation?**
+
+In ordinary attention we'll have the
+$e^{-i(n-m)\theta}$ term in
+$f_{q}(x_n, n, \Theta)f_{k}(x_m, m, \Theta)^T$
+which, after interpolation, becomes $e^{-i(n/s-m/s)\theta}$, and for large $s$ and small $n-m$ the term $\frac{n-m}{s}$ may become too small. So, interpolated positions can do a bad job with close tokens, and since close tokens usually have strong ties, this can severely decrease quality.
+
+There are several ways of mitigating this.
+
+**Base change**. The authors of [Code LLaMA](https://arxiv.org/pdf/2308.12950) suggest instead of scaling the range increasing base $b$ from 10,000 to 1,000,000 for fine-tuning.
+
+The **"NTK-aware" method** is a base change with a particular new base value:
+$g(m) = m,\\
+h(\theta_j) = (b')^{-2j/d},$
+where $b' = b\cdot s^{\frac{d}{d-2}}$.
+
+Note that NTK-aware method combines both interpolation and extrapolation.
+
+The [YaRN](https://arxiv.org/pdf/2309.00071) paper uses an elaborate version of this, treating different coordinates (different $j$) in a different way, depending on the *wavelength* of RoPE, which is defined as $\lambda_j = \frac{2\pi}{\theta_j} = 2\pi b^{2j/p}$. The idea is as follows:
+
+- If the wavelength $\lambda_j$ is much smaller than the context size $L$, we do not interpolate
+- If the wavelength $\lambda_j$ is equal to or bigger than the context size $L$, we want to only interpolate and avoid any extrapolation (unlike the previous "NTK-aware" method)
+- Dimensions in-between can have a bit of both, similar to the "NTK-aware" interpolation
+
+We'll skip the formulas, but you can check them in the YaRN paper.
+
+**But what is “NTK”?** NTK stands for Neural Tangent Kernels, and NTK-aware interpolation has an interesting mathematical interpretation, which we'll unfortunately skip here. If you're curious about it, you can check this paper: [Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains](https://arxiv.org/pdf/2006.10739.pdf).
+
 # Mixture of experts
 
-The mixture of experts approach is featured in the [Mixtral model](https://huggingface.co/blog/mixtral), and we really recommend browsing the blog post [Mixture of Experts Explained](https://huggingface.co/blog/moe) blog post to better understand its inner workings and to get a feel on how to make it really efficient.
+The **Mixture of Experts** (**MoE**) approach was first brought to LLMs with the [Mixtral model](https://huggingface.co/blog/mixtral). It had its own ups and downs in the LLM history; recent models that use MoE include **DeepSeek-V3** (and its descendant **DeepSeek-R1**) and two models from the Qwen3 family: **Qwen3-30B-A3B** and **Qwen3-235B-A22B**.
 
-Mixtral has a similar architecture to Mistral 7B, but some of the Feedforward layers are replaced with a sparse MoE (Mixture of Experts) layer.
+We really recommend browsing the blog post [Mixture of Experts Explained](https://huggingface.co/blog/moe) blog post to better understand its inner workings and to get a feel on how to make it really efficient.
+
+Mixtral has a similar architecture to Mistral 7B, but some of the Feedforward layers are replaced with a *sparse* MoE (Mixture of Experts) layer.
 
 ![]({{ site.baseurl }}/assets/images/transformer-architectures/moe.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
 
@@ -462,12 +532,15 @@ H(x)_i, &\text{if $H(x)_i$ is among the top-$k$ of $H(x)_i$},\\
   $$y = \sum_iG(x)_iE_i(x)$$
     
     Note that only $k$ experts $E_i$ are employed each time
-    
+
+For example, **Qwen3-235B-A22B** has 128 experts, with only 8 of those activated for each token. (This information may be checked in its [model card](https://huggingface.co/Qwen/Qwen3-235B-A22B).)
 
 **Why does this matter?** If we compare Mistral to Mixtral, we see two things:
 
 - Mixtral has a much larger number of total parameters: 46.7B as opposed to Mistral’s 7B. So, accordingly, you'll need more memory to store it — but at the same time, the model is potentially much more powerful than Mistral.
 - That said, on inference time you don't use all the parameters because out of many experts you only employ several (for example, $2$). In the case of Mixtral, only 12.9B parameters are used for each inference call. This makes the model almost as quick as Mistral, while also being much more powerful.
+
+For example, the name **Qwen3-235B-A22B** means that the model has **235B** parameters in total, with only **22B** activated for each token.
 
 There are many more interesting features to explore with this approach; for example, load balancing. Dealing with experts is worth it if you can parallelize their jobs, but depending on gating, some of them may remain underemployed, thus severely limiting overall efficiency. The authors use some interesting ideas to deal with this; check the paper to explore this further.
 
