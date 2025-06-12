@@ -7,15 +7,45 @@ permalink: /transformer-architectures/
 
 In this long read, we'll discuss some of the milestones of transformer architecture development, which has shaped how today's LLM are built.
 
+We don't cover transormer basics here; for that, please check videos by Tatiana Gaintseva, see Topic 4 materials.
+
 # A short recap
 
-Before we start, let's briefly recall the overall transformer architecture.
+Before we start, let's briefly recall the overall LLM architecture.
 
-A transformer
+A typical LLM consists of:
 
-# MLP (FFN)
+* An **Embedding layer** is basically a lookup table mapping tokens to their embeddings
+* A number of consequent **Transformer blocks**, which are the backbone of the model. There are usually several dozens of blocks; for example, the three Llama 3.1 models have 32, 80, and 126 layers respectively.
+* A **Language modelling (LM) head**, also known as **unembedding layer** is a linear layer that takes the final hidden state of the last token and maps it to *next token logits*, which **softmax** turns into *next token probabilities*:
 
-A feedforward block in a transformer is often a two-layer MLP, which originally had ReLU activation:
+![]({{ site.baseurl }}/assets/images/transformer-architectures/transformer_general_all.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
+
+In turn, a transformer block has two main components:
+
+* A **self-attention layer** performs sequence-wise information mixing. In a very basic version, each token of an LLM "attends" to itself and all the previous tokens.
+
+  In some non-LLMs, including **encoder-only transformers** - for example, embedding models we use in vector stores - each token attends *every other token*, not only the previous ones.
+  
+* An **FFN** (**Feed-forward network**) block, which is an arrangement of linear layers. In the first transformers, FFN blocks were just MLP; nowadays they are a bit more complicated - see the **FFN** section below. FFN transforms hidden states of different tokens independently, performing no information exchange between tokens ("channel mixing" as opposed to "sequence-wise" mixing).
+  
+  FFN blocks usually contain the majority of LLM's parameters, and there is evidence that they might store the transformer's "knowledge".
+
+![]({{ site.baseurl }}/assets/images/transformer-architectures/transformer_general.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
+
+**Note**. The position of the **Normalization** block might be different; see the discussion below.
+
+For numerical reference, we'll be using Llama 3.1 technical characteristics:
+
+![]({{ site.baseurl }}/assets/images/transformer-architectures/llama-3.1-chars.png){: .responsive-image style="--img-desktop:50%; --img-mobile:90%;"}
+
+Source: Llama 3.1 technical paper available from [here](https://ai.meta.com/blog/meta-llama-3-1/)
+
+In this long read, we'll discuss the evolution of each of these components.
+
+# FFN
+
+In earlier transformers, an FFN block was often a two-layer MLP, which originally had ReLU activation:
 
 $$\mathrm{FFN}(x) = \mathrm{ReLU}(xW_1 + b_1)W_2 + b_2$$
 
@@ -54,32 +84,48 @@ with some $a > 0$. However, several other functions proved to be more beneficial
   $$\mathrm{Swish}(x) = x\cdot\sigma(\beta x)$$
     
   Here, $\beta$ is a parameter and $\sigma$ is the familiar sigmoid function. GELU can be approximated with Swish as $x\sigma(1.702x)$.
+
+  ![]({{ site.baseurl }}/assets/images/transformer-architectures/Swish.png){: .responsive-image style="--img-desktop:50%; --img-mobile:90%;"}
+
+  A particular case with $\beta=1$ is known as **Sigmoid Linear Unit**
+
+  $$\mathrm{SiLU}(x) = x\cdot\sigma(x)$$
     
-3. **SwiGLU** was introduced in [GLU Variants Improve Transformer](https://arxiv.org/pdf/2002.05202v1.pdf). It's actually more than just a new activation, because it also adds third trainable weight matrix to the feedforward block:
+## Gated MLP
 
-  $$\mathrm{FFN}{\mathrm{SwiGLU}}(x, W_1, V, W_2) = (\mathrm{Swish}_{\beta=1}(xW_1) \otimes xV )W_2$$
+Probably the most popular FFN architecture today is a **GatedMLP**. It was introduced under the name of **SwiGLU** in [GLU Variants Improve Transformer](https://arxiv.org/pdf/2002.05202v1.pdf). Here's what it looks like in **Qwen2.5-3B-Instruct**:
 
-  In this case, $\otimes$ stands for elementwise product. SwiGLU recalls a gating mechanism from LSTMs: it's like $xV$ is the information we’re passing through and $\mathrm{Swish}_{\beta=1}(xW_1)$ controls how much of this information we want to pass through the FFN layer. Of course, it’s *exactly* like that (because Swish is not $\sigma$), but this may help getting an intuition for it.
+![]({{ site.baseurl }}/assets/images/transformer-architectures/GELU.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
+ 
+SwiGLU recalls a gating mechanism from LSTMs: it's like `up_proj(x)` is the information we’re passing through and `SiLU(gate_proj(x))` controls how much of this information we want to pass through the FFN layer. Of course, it’s *exactly* like that (because `SiLU` is not $\sigma$), but this may help getting an intuition for it.
 
-## "Parallel" formulation
-
-Although this idea is about transformer block architecture as a whole, I'll make note of this concept in this section. This was suggested by the authors of [mesh-transformer-jax](https://github.com/kingoflolz/mesh-transformer-jax) and later used in [PaLM](https://arxiv.org/pdf/2204.02311.pdf). In a typical transformer block, attention and MLP are arranged consequently, and this approach decouples them:
-
-![]({{ site.baseurl }}/assets/images/transformer-architectures/Swish.png){: .responsive-image style="--img-desktop:50%; --img-mobile:90%;"}
-
-Note the peculiar position of LayerNorm; you'll see more about this in the following section.
+On the image above you can also observe a typical dimension patter: the internal dimension of FFN tends to be significantly higher that the input/output dimension. (Also, see [Llama 3.1 parameters](https://raw.githubusercontent.com/Nebius-Academy/knowledge-base/refs/heads/transformer-archtectures-update/assets/images/transformer-architectures/llama-3.1-chars.png).)
 
 # Normalization
 
+This layer stabilizes training by normalize each token’s hidden‐state vector **across its feature dimensions**. The original transformer architecture featured the `LayerNorm` layer, which for a hidden vector $x\in\mathbb{R}^d$ computed
+
+$$
+\mu = \tfrac1d\sum_{i=1}^d x_i,\quad
+\sigma^2 = \tfrac1d\sum_{i=1}^d(x_i-\mu)^2,
+$$
+
+$$
+\hat x_i \;=\;\frac{x_i - \mu}{\sqrt{\sigma^2 + \epsilon}}\,,\quad 
+\mathrm{LayerNorm}(x)_i \;=\;\gamma_i\,\hat x_i \;+\;\beta_i,
+$$
+
+where $\epsilon$ (typically $10^{-6}$) ensures numerical stability, and $\gamma,\beta\in\mathbb{R}^d$ are learned per-feature scale and shift parameters.  
+
 ## RMSNorm
 
-This was introduced in [Root Mean Square Layer Normalization paper](https://arxiv.org/pdf/1910.07467.pdf) The normalization technique applied here ignores centering and simply sets the scale. So, for a vector $a$ the new values will be:
+This normalization layer was introduced in [Root Mean Square Layer Normalization paper](https://arxiv.org/pdf/1910.07467.pdf). It ignores centering and simply sets the scale. So, for a vector $x$ the new values will be:
 
-$$\overline{a}_i = \frac{a_i}{\text{RMS}(a_i)}g_i$$
+$$\overline{x}_i = \frac{x_i}{\text{RMS}(x_i)}g_i$$
 
-In this case, $g_i$ is trainable and the following formula is used to calculate RMS(a):
+In this case, $g_i$ is trainable and the following formula is used to calculate `RMS(x)`:
 
-$$\mathrm{RMS}(a) = \sqrt{\frac1n\sum_{i=1}^na_i^2}$$
+$$\mathrm{RMS}(x) = \sqrt{\frac1d\sum_{i=1}^dx_i^2 + \epsilon}$$
 
 RMSNorm yields comparable performance against LayerNorm but shows superiority in terms of running speed with a speed-up of $7\%\sim 64\%$; it seems to be the state-of-the-art at present.
 
