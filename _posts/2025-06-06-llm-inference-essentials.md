@@ -26,8 +26,6 @@ In Topic 4, we discuss how inference operates and what are potential bottlenecks
 
 ## Inference Process
 
-You can think of inference as the model's way of *"thinking"* and producing answers based on the patterns and knowledge it has learned during training. During inference, the model's parameters (weights and biases) are used to process the input and generate the output.
-
 Here is a schematic overview of the LLM inference steps:
 
 ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/llm-inference-schematics.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
@@ -35,7 +33,7 @@ Here is a schematic overview of the LLM inference steps:
 There are three key steps:
 
 1. **Downloading**: This stage involves downloading the model weights, typically from a cloud storage service like Hugging Face. These weights are then stored on the computer’s disk where you plan to run the LLM, whether on a local machine or a remote server.
-2. **Loading**: In this step, the LLM’s weights are loaded into RAM or GPU memory, preparing the model for generating new tokens. Depending on the hardware, you can run the model on either a CPU or GPU, with GPUs predominantly used for modern LLMs due to their superior performance.
+2. **Loading**: In this step, the LLM’s weights are loaded into RAM or the memory of a hardware accelerator (such as GPU or TPU), preparing the model for generating new token. GPUs and TPUs are predominantly used for modern LLMs due to their superior performance in comparison to CPUs.
 3. **Generation**: Finally, the model is ready to generate new tokens. As tokens are generated, they are concatenated into the output sequence, which is returned as the result of the inference process.
 
 > **Important note**: During inference, the model’s weights are not updated; they remain unchanged.
@@ -170,7 +168,7 @@ In the remaining part of this section we'll make two takes towards computing the
 
 1. For the first take, we'll draft an approximate calculation ignoring KV-cache and LLM's architectural details. We assume here that we work with relatively low context sizes, so that KV-cache size $\ll$ weights size.
 
-2. For the second take, we'll try to take into account as much as we can, leaving behind only activations and....
+2. For the second take, we’ll try to take into account transformer arhitecture, calculating flops for every operation and assuming the use of a KV-cache. 
 
 And the results will surprise us.
 
@@ -314,9 +312,9 @@ Even the LLM weights may be too large to fit into one GPU (imagine Llama 405B th
 
 For small models like Llama 8B, the practical batch size is often much lower than the theoretical limit (e.g., 430) due to the high memory consumption of activations and cache. As a result, LLM inference is predominantly **memory-bound**. To improve inference speed, focusing on optimizing memory movement is more effective than enhancing computational performance.
 
-## Take 2: (almost) all in
+## Take 2: Arhitecture-specific computation
 
-Let's try to refine our computation using whatever we know about LLM's architecture. However, as before, we'll assume that LLM's weights are already stored on a GPU. That's logical for most practical setups; however, in some cases, when we're low on GPU memory, we might offload parts of a model to CPU and drag them back and forth to GPU for computations - this, of course, makes everything more computationally expensive.
+Now, we’ll try to take into account transformer arhitecture, calculating flops for every operation and assuming the use of a KV-cache. However, as before, we'll assume that LLM's weights are already stored on a GPU. That's logical for most practical setups; however, in some cases, when we're low on GPU memory, we might offload parts of a model to CPU and drag them back and forth to GPU for computations - this, of course, makes everything more computationally expensive.
 
 This time, we'll need to take sequence length into account. Let's denote by `l_prompt` and `l_completion` the lengths of prompt and completion respectively, and by `seq_len` the total prompt + completion length.
 
@@ -338,15 +336,15 @@ In total, we get $\approx 2mnk$ FLOPs.
 
 ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/full_attention_mechanism.png){: .responsive-image style="--img-desktop:100%; --img-mobile:90%;"}
 
-Let's go through the components.
+Let's go through the components. For the sake of simplicity, we'll calculate flops per signle string of a batch, i.e. like we have `batch_size = 1`. We will add batch size to our calculations further down the road. 
 
 - Query projection: `(seq_len, hid_dim) x (hid_dim, num_heads * head_dim)` gives us
 
-  $$2\text{seq_len}\cdot\text{hid_dim}\cdot\text{num_heads}\cdot\text{head_dim}\text{  FLOPs}$$
+  $$2\cdot\text{seq_len}\cdot\text{hid_dim}\cdot\text{num_heads}\cdot\text{head_dim}\text{  FLOPs}$$
 
 - Key/Value projections: `(seq_len, hid_dim) x (hid_dim, num_kv_heads * head_dim)` give each
 
-  $$2\text{seq_len}\cdot\text{hid_dim}\cdot\text{num_kv_heads}\cdot\text{head_dim  FLOPs}$$
+  $$2\cdot\text{seq_len}\cdot\text{hid_dim}\cdot\text{num_kv_heads}\cdot\text{head_dim  FLOPs}$$
 
   We'll have different number of query and key/value heads for grouped query attention.
 
@@ -354,32 +352,46 @@ Let's go through the components.
 
 - Output projection: `(seq_len, num_heads * head_dim) x (num_heads * head_dim, hid_dim)` also gives us
 
-  $$2\text{seq_len}\cdot\text{hid_dim}\cdot\text{num_heads}\cdot\text{head_dim}\text{  FLOPs}$$
+  $$2\cdot\text{seq_len}\cdot\text{hid_dim}\cdot\text{num_heads}\cdot\text{head_dim}\text{  FLOPs}$$
 
 - Computing attention scores $S = QK^T$. This happens in different ways during the two attention stages:
 
   ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/two-attention-stages-as-matrices.png){: .responsive-image style="--img-desktop:80%; --img-mobile:80%;"}
 
-  An upper estimate of total complexity is multiplication of the following two imaginary matrices:
+  Over `num_heads` heads, the first stage requires
 
-  ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/two-attention-upper-estimate.png){: .responsive-image style="--img-desktop:50%; --img-mobile:80%;"}
+  $$2\cdot\text{l_prompt}\cdot\text{head_dim}\cdot\mathbf{l_prompt}\cdot\text{num_heads}\leqslant$$
 
-  Over `num_heads`, his gives
+  $$\leqslant2\cdot\text{l_prompt}\cdot\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}\quad{(P)}$$
 
-  $$2\text{seq_len}\cdot\text{head_dim}\cdot\text{seq_len}\cdot\text{num_heads}=$$
+  Note that we have `attn_hid_dim` instead of just `hid_dim` here. For most models, hidden dimensions inside attention layers is the same as hidden dimensions between transformer blocks, but there are some LLMs for which `attn_hid_dim != hid_dim`. So, we distinguished between them here, just in case.
 
-  $$=2\text{seq_len}^2\cdot\text{attn_hid_dim}\text{ FLOPs}$$
+  As for the second stage, for each newly generated token we have, over `num_heads` heads,
+
+  $$\leqslant 2\cdot\text{head_dim}\cdot\text{seq_len}\cdot\text{num_heads}=$$
+
+  $$=2\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}$$
+
+  We generate `l_completion` tokens, which gives in total
+
+  $$2\text{l_completion}\cdot\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}\quad{(C)}$$
+
+  Combining (P) and (C), we get the following upper estimate:
+
+  $$2\left(\underbrace{\text{l_completion} + \text{l_prompt}}_{=\text{seq_len}}\right)\cdot\text{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}=$$
+
+  $$2\cdot\text{seq_len}^2\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}$$
 
 - Computing attention output $$O=\text{Softmax}(M + S)\cdot V$$. We can ignore softmax and masking and concentrate on multiplication of matrix of sizes not greater than `(seq_len, seq_len) x (seq_len, head_dim)`, which happens `head_dim` times:
 
-  $$2\text{seq_len}\cdot\text{seq_len}\cdot\text{num_heads}\cdot\text{head_dim}=$$
+  $$2\cdot\text{seq_len}\cdot\text{seq_len}\cdot\text{num_heads}\cdot\text{head_dim}=$$
 
-  $$=2\text{seq_len}^2\cdot\text{num_heads}\cdot\text{head_dim}\text{  FLOPs}$$
+  $$=2\cdot\text{seq_len}^2\cdot\text{num_heads}\cdot\text{head_dim}\text{  FLOPs}$$
 
 The total computational cost is
 
 $$
-C_{\text{attn}} = 4\text{seq_len}\cdot\text{hid_dim}\cdot\text{head_dim}\cdot(\text{num_heads} + \text{num_kv_heads}) +
+C_{\text{attn}} = 4\cdot\text{seq_len}\cdot\text{hid_dim}\cdot\text{head_dim}\cdot(\text{num_heads} + \text{num_kv_heads}) +
 $$
 
 $$
@@ -488,4 +500,4 @@ What does this result mean? To understand it, let's plot how FLOPs and data move
 
 ![]({{ site.baseurl }}/assets/images/llm-inference-essentials/why-negative-batch-size.png){: .responsive-image style="--img-desktop:70%; --img-mobile:90%;"}
 
-You can see that memory movement time grows faster than compute, so the LLM always stays in a memory bound regime.  
+You can see that memory movement time grows faster than compute, so the LLM always stays in a memory bound regime. But don't let it discourage you! There is a number of optimization techniques that help speed up the inference, and we'll talk about some of them in Topic 5.
