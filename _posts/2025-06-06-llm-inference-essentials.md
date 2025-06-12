@@ -360,9 +360,11 @@ Let's go through the components. For the sake of simplicity, we'll calculate flo
 
   Over `num_heads` heads, the first stage requires
 
-  $$2\cdot\text{l_prompt}\cdot\text{head_dim}\cdot\mathbf{l_prompt}\cdot\text{num_heads}\leqslant$$
+  $$2\cdot\text{l_prompt}\cdot\text{head_dim}\cdot\text{\color{red}{l_prompt}}\cdot\text{num_heads}\leqslant$$
 
-  $$\leqslant2\cdot\text{l_prompt}\cdot\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}\quad{(P)}$$
+  $$\leqslant 2\cdot\text{l_prompt}\cdot\text{\color{red}{seq_len}}
+  \cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}\quad{(P)}$$
+  
 
   Note that we have `attn_hid_dim` instead of just `hid_dim` here. For most models, hidden dimensions inside attention layers is the same as hidden dimensions between transformer blocks, but there are some LLMs for which `attn_hid_dim != hid_dim`. So, we distinguished between them here, just in case.
 
@@ -374,13 +376,13 @@ Let's go through the components. For the sake of simplicity, we'll calculate flo
 
   We generate `l_completion` tokens, which gives in total
 
-  $$2\text{l_completion}\cdot\mathbf{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}\quad{(C)}$$
+$$2\text{l_completion}\cdot\mathbf{seq_len}\cdot\text{attn_hid_dim}\text{ FLOPs}\quad{(C)}$$
 
   Combining (P) and (C), we get the following upper estimate:
 
-  $$2\left(\underbrace{\text{l_completion} + \text{l_prompt}}_{=\text{seq_len}}\right)\cdot\text{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}=$$
+  $$2\left(\underbrace{\text{l_completion} + \text{l_prompt}}_{=\text{seq_len}}\right)\cdot\text{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}=$$
 
-  $$2\cdot\text{seq_len}^2\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}\text{ FLOPs}$$
+  $$2\cdot\text{seq_len}^2\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}$$
 
 - Computing attention output $$O=\text{Softmax}(M + S)\cdot V$$. We can ignore softmax and masking and concentrate on multiplication of matrix of sizes not greater than `(seq_len, seq_len) x (seq_len, head_dim)`, which happens `head_dim` times:
 
