@@ -370,7 +370,9 @@ Let's go through the components. For the sake of simplicity, we'll calculate flo
 
   As for the second stage, for each newly generated token we have, over `num_heads` heads,
 
-  $$\leqslant 2\cdot\text{head_dim}\cdot\text{seq_len}\cdot\text{num_heads}=$$
+  $$2\cdot\text{head_dim}\cdot\mathbf{\left(l\_prompt + l\_current\_completion\right)}\cdot\text{num_heads}=$$
+
+  $$\leqslant2\cdot\text{head_dim}\cdot\mathbf{seq\_len}\cdot\text{num_heads}=$$
 
   $$=2\text{seq_len}\cdot\underbrace{\text{attn_hid_dim}}_{=\text{head_dim}\cdot\text{num_heads}}\text{ FLOPs}$$
 
