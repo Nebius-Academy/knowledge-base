@@ -2,7 +2,7 @@
 layout: post
 title: "LLM Inference Essentials"
 categories: blog
-permalink: /evaluation-1-basics/
+permalink: /evaluation-3-deterministic/
 ---
 
 
@@ -12,7 +12,7 @@ permalink: /evaluation-1-basics/
 ![]({{ site.baseurl }}/assets/images/evaluation/evidently_ai_logo_docs.png)
 ){: .responsive-image style="--img-desktop:50%; --img-mobile:75%;"}
 
-This is the first of five chapters.
+This is the third of five chapters.
 
 * [Chapter 1](https://nebius-academy.github.io/knowledge-base/evaluation-1-basics/)
 * [Chapter 2](https://nebius-academy.github.io/knowledge-base/evaluation-2-generative-systems/)
