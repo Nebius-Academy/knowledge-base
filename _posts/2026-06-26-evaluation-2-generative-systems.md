@@ -2,7 +2,7 @@
 layout: post
 title: "LLM Inference Essentials"
 categories: blog
-permalink: /evaluation-1-basics/
+permalink: /evaluation-2-generative-systems/
 ---
 
 
@@ -14,7 +14,6 @@ permalink: /evaluation-1-basics/
 This is the second of five chapters.
 
 * [Chapter 1](https://nebius-academy.github.io/knowledge-base/evaluation-1-basics/)
-* [Chapter 2](https://nebius-academy.github.io/knowledge-base/evaluation-2-generative-systems/)
 * [Chapter 3](https://nebius-academy.github.io/knowledge-base/evaluation-3-deterministic/)
 * [Chapter 4](https://nebius-academy.github.io/knowledge-base/evaluation-4-model-based/)
 * [Chapter 5](https://nebius-academy.github.io/knowledge-base/evaluation-5-production-monitoring/)
