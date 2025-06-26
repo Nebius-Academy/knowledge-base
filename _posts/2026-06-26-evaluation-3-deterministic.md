@@ -9,14 +9,12 @@ permalink: /evaluation-3-deterministic/
 **Authored by** **Emeli Dral** and **Elena Samuylova**, creators of [**Evidently**](https://www.evidentlyai.com/) ([GitHub](https://github.com/evidentlyai/evidently)), an open-source ML and LLM evaluation framework with 25M+ downloads:
 
 
-![]({{ site.baseurl }}/assets/images/evaluation/evidently_ai_logo_docs.png)
-){: .responsive-image style="--img-desktop:50%; --img-mobile:75%;"}
+![]({{ site.baseurl }}/assets/images/evaluation/evidently_ai_logo_docs.png){: .responsive-image style="--img-desktop:50%; --img-mobile:75%;"}
 
 This is the third of five chapters.
 
 * [Chapter 1](https://nebius-academy.github.io/knowledge-base/evaluation-1-basics/)
 * [Chapter 2](https://nebius-academy.github.io/knowledge-base/evaluation-2-generative-systems/)
-* [Chapter 3](https://nebius-academy.github.io/knowledge-base/evaluation-3-deterministic/)
 * [Chapter 4](https://nebius-academy.github.io/knowledge-base/evaluation-4-model-based/)
 * [Chapter 5](https://nebius-academy.github.io/knowledge-base/evaluation-5-production-monitoring/)
 
