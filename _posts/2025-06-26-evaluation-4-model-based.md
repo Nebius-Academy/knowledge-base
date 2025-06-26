@@ -9,8 +9,7 @@ permalink: /evaluation-4-model-basedc/
 **Authored by** **Emeli Dral** and **Elena Samuylova**, creators of [**Evidently**](https://www.evidentlyai.com/) ([GitHub](https://github.com/evidentlyai/evidently)), an open-source ML and LLM evaluation framework with 25M+ downloads:
 
 
-![]({{ site.baseurl }}/assets/images/evaluation/evidently_ai_logo_docs.png)
-){: .responsive-image style="--img-desktop:50%; --img-mobile:75%;"}
+![]({{ site.baseurl }}/assets/images/evaluation/evidently_ai_logo_docs.png){: .responsive-image style="--img-desktop:50%; --img-mobile:75%;"}
 
 This is the fourth of five chapters.
 
