@@ -41,8 +41,8 @@ There are two main evaluation workflows, depending on the stage and nature of yo
 This approach relies on having **ground truth answers**, and evaluation measures if the new outputs match the ground truth. Essentially, it follows the same principles as in traditional predictive system evaluation.
 
 Reference-based evaluations are conducted **offline**:
-- When you re-run evaluations after making changes, such as editing prompts during experiments.  
-- Before pushing updates to production, as part of regression testing.
+- When you re-run evaluations after making changes and before exposing the updates to live users. For example, when you edit prompts during experiments.  
+- Before pushing updates to production, as part of *regression testing* (which is rerunning those previously-passing tests after every change to ensure nothing old broke).
 
 You start by preparing a custom evaluation dataset of expected inputs and outputs — for example, a set of questions you expect users to ask and their ideal responses. This dataset is often referred to as a **"golden set."** It should be representative of your real use cases. The quality of your evaluations will directly depend on how well it reflects the tasks your system must handle.
 
