@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "LLM Inference Essentials"
+title: "LLM evaluation, chapter 1: Basics of AI system evaluation"
 categories: blog
 permalink: /evaluation-1-basics/
 ---
