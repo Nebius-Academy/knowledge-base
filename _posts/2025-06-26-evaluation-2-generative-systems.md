@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "LLM Inference Essentials"
+title: "LLM evaluation, chapter 2: Evaluating generative systems"
 categories: blog
 permalink: /evaluation-2-generative-systems/
 ---
