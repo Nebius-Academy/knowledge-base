@@ -208,6 +208,206 @@
     blockquote .MathJax {
       margin: 0.5em 0;
     }
+
+    /* Table container for responsive scrolling */
+    .table-wrapper {
+      overflow-x: auto;
+      margin: 1.5em 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Main table styling */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95em;
+      background: white;
+      margin: 0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    /* Table header styling */
+    thead {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    th {
+      padding: 16px 20px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.9em;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border: none;
+      position: relative;
+    }
+    
+    /* Add subtle separator between header columns */
+    th:not(:last-child):after {
+      content: '';
+      position: absolute;
+      top: 25%;
+      right: 0;
+      height: 50%;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Table body styling */
+    tbody tr {
+      transition: all 0.2s ease;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    
+    tbody tr:hover {
+      background-color: #f8f9ff;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+    
+    /* Alternating row colors */
+    tbody tr:nth-child(even) {
+      background-color: #fafbfc;
+    }
+    
+    tbody tr:nth-child(even):hover {
+      background-color: #f0f2ff;
+    }
+    
+    /* Table cell styling */
+    td {
+      padding: 14px 20px;
+      border: none;
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    
+    /* Special styling for numeric columns */
+    td.numeric, th.numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    
+    /* Special styling for center-aligned content */
+    td.center, th.center {
+      text-align: center;
+    }
+    
+    /* Compact table variant */
+    table.compact th,
+    table.compact td {
+      padding: 8px 12px;
+      font-size: 0.9em;
+    }
+    
+    /* Striped table variant */
+    table.striped tbody tr:nth-child(odd) {
+      background-color: #f8f9fa;
+    }
+    
+    table.striped tbody tr:nth-child(even) {
+      background-color: white;
+    }
+    
+    /* Bordered table variant */
+    table.bordered {
+      border: 1px solid #dee2e6;
+    }
+    
+    table.bordered th,
+    table.bordered td {
+      border: 1px solid #dee2e6;
+    }
+    
+    /* Responsive table adjustments */
+    @media (max-width: 600px) {
+      .table-wrapper {
+        margin: 1em -20px;
+        border-radius: 0;
+        box-shadow: none;
+        border-top: 1px solid #e8e8e8;
+        border-bottom: 1px solid #e8e8e8;
+      }
+      
+      table {
+        font-size: 0.85em;
+        border-radius: 0;
+      }
+      
+      th, td {
+        padding: 10px 12px;
+      }
+      
+      th {
+        font-size: 0.8em;
+      }
+      
+      /* Stack table cells on very small screens */
+      @media (max-width: 400px) {
+        table, thead, tbody, th, td, tr {
+          display: block;
+        }
+        
+        thead tr {
+          position: absolute;
+          top: -9999px;
+          left: -9999px;
+        }
+        
+        tr {
+          border: 1px solid #ccc;
+          margin-bottom: 10px;
+          padding: 10px;
+          border-radius: 8px;
+          background: white;
+        }
+        
+        td {
+          border: none;
+          position: relative;
+          padding: 8px 8px 8px 35%;
+          text-align: left;
+        }
+        
+        td:before {
+          content: attr(data-label) ": ";
+          position: absolute;
+          left: 6px;
+          width: 30%;
+          text-align: left;
+          font-weight: 600;
+          color: #666;
+        }
+      }
+    }
+    
+    /* Table caption styling */
+    caption {
+      padding: 12px 0;
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #333;
+      text-align: left;
+      caption-side: top;
+    }
+    
+    /* Table within blockquotes */
+    blockquote table {
+      background: rgba(255, 255, 255, 0.8);
+    }
+    
+    blockquote .table-wrapper {
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+    
   </style>
   <!-- End of Custom Styles -->
 </head>
