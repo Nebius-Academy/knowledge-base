@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "LLM Inference Essentials"
+title: "LLM evaluation, chapter 3: Deterministic evaluation"
 categories: blog
 permalink: /evaluation-3-deterministic/
 ---
@@ -22,7 +22,7 @@ This is the third of five chapters.
 Together with this theoretical introduction, you can explore a [practical Python example on different LLM evaluation methods](https://colab.research.google.com/github/Nebius-Academy/LLM-Engineering-Essentials/blob/main/topic5/5.1_llm_evaluation.ipynb).
 
 
-# Chapter 3: Deterministic evaluations
+# Deterministic evaluations
 
 Now, let’s take a look at the different methods you can use to evaluate generative outputs — starting with deterministic evaluation methods that are rule-based and directly computable.
 

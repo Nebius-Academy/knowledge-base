@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "LLM Inference Essentials"
+title: "LLM evaluation, chapter 2: Evaluating generative systems"
 categories: blog
 permalink: /evaluation-2-generative-systems/
 ---
@@ -20,7 +20,7 @@ This is the second of five chapters.
 
 Together with this theoretical introduction, you can explore a [practical Python example on different LLM evaluation methods](https://colab.research.google.com/github/Nebius-Academy/LLM-Engineering-Essentials/blob/main/topic5/5.1_llm_evaluation.ipynb).
 
-# Chapter 2: Evaluating generative systems
+# Evaluating generative systems
 
 When building generative systems, the typical starting point is **manual evaluation**, where you manually review or label outputs. This step is essential: manual labeling helps you understand the types of errors your system produces and define your quality criteria. However, manual evaluation has limited scalability, especially when you run iterative experiments like trying different versions of prompts. **Automated evaluations** help speed up and scale the process. 
 
