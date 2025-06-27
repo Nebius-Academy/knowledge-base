@@ -42,7 +42,7 @@ These kinds of tasks are what make generative systems so powerful — you can au
 
 *In this guide, we’ll explore how to evaluate AI systems built with large language models — from development to real-world monitoring.*
 
-# Chapter 1: Basics of AI system evaluation
+# Basics of AI system evaluation
 
 *In this chapter, we introduce different types of AI tasks — and explain how they shape the evaluation process. We also briefly cover how predictive systems are typically evaluated to learn from existing foundations*.
 
