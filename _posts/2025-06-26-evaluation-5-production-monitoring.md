@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "LLM Inference Essentials"
+title: "LLM evaluation, chapter 5: Production monitoring and observability"
 categories: blog
 permalink: /evaluation-5-production-monitoring/
 ---
@@ -21,7 +21,7 @@ This is the fifth of five chapters.
 Together with this theoretical introduction, you can explore a [practical Python example on different LLM evaluation methods](https://colab.research.google.com/github/Nebius-Academy/LLM-Engineering-Essentials/blob/main/topic5/5.1_llm_evaluation.ipynb).
 
 
-# Chapter 5: Production monitoring and observability
+# Production monitoring and observability
 
 Deploying a generative system into production is an exciting milestone — but it’s only the beginning. Once the system is live, you need to monitor its performance continuously to ensure it remains accurate, efficient, and aligned with user needs. Production monitoring and observability help you track behavior, detect issues early, and maintain a high-quality user experience.
 
