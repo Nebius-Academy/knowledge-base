@@ -5,7 +5,7 @@ categories: blog
 permalink: /monitoring-with-grafana-and-prometheus/
 ---
 
-**By: Alexey Bukhtiyarov**
+**By: [Alexey Bukhtiyarov](https://www.linkedin.com/in/leshanbog/)**
 
 
 # Basic monitoring tools: Grafana and Prometheus

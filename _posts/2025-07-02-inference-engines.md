@@ -5,7 +5,7 @@ categories: blog
 permalink: /inference-engines/
 ---
 
-**By: Alexey Bukhtiyarov**
+**By: [Alexey Bukhtiyarov](https://www.linkedin.com/in/leshanbog/)**
 
 # Introduction
 
@@ -89,9 +89,7 @@ To demonstrate, the prompt structure might look like this:
 
 Notice that for different texts, the prompt's large prefix remains the same. This means we're repeatedly processing the same information every time we evaluate a new text — which isn't very efficient. **Further, if you're using APIs, you're also paying for these repeated tokens each time.**
 
-This is where **prefix caching** comes to the rescue! By caching the representations of the shared input text — the common prefi
-
- — you can reuse them for future requests. This way, you save computational resources and reduce costs because you're not re-processing the same data over and over again.
+This is where **prefix caching** comes to the rescue! By caching the representations of the shared input text — the common prefix — you can reuse them for future requests. This way, you save computational resources and reduce costs because you're not re-processing the same data over and over again.
 
 Prefix caching is especially useful when your requests share a significant common text prefix (like with few-shot examples, or long documents) and only need to generate a small amount of new text. Keep in mind, though, that if you're generating long outputs, the performance gains might be minimal since prefix caching only skips the initial prompt processing, not the computations required for generating output tokens.
 
@@ -264,7 +262,3 @@ The **Triton Inference Server** acts as the serving framework that utilizes Tens
 This solution incorporates numerous optimizations, including Paged Attention, Continuous Batching, and Prefix Caching, which we discussed earlier. Also, Triton Inference Server provides a **metrics endpoint**, enabling easy performance monitoring. Similar to vLLM's `/metrics` endpoint, it integrates seamlessly with **Prometheus** (this tool will be reviewed in the next lessons), allowing you to track key metrics like throughput, latency, GPU utilization, and more.
 
 In summary, if you're deploying large-scale language models and need to maximize inference speed and efficiency on NVIDIA hardware, Triton Inference Server with TensorRT Backend offers a highly optimized solution.
-
-
-
-
