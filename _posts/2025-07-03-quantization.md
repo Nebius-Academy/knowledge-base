@@ -5,7 +5,7 @@ categories: blog
 permalink: /quantization/
 ---
 
-**By: Alexey Bukhtiyarov**
+**By: [Alexey Bukhtiyarov](https://www.linkedin.com/in/leshanbog/)**
 
 # Quantization
 
