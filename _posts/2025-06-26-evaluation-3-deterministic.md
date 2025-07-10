@@ -268,4 +268,4 @@ This has led to the development of more advanced alternatives:
 
 Let’s keep building your evaluation toolkit!
 
-[Continue to the next chapter](https://nebius-academy.github.io/knowledge-base/evaluation-3-deterministic/)
+[Continue to the next chapter](https://nebius-academy.github.io/knowledge-base/evaluation-4-model-based/)
