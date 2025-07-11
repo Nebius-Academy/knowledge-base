@@ -139,7 +139,7 @@ The image below shows continuous batching in action:
 
 Continuous batching is possible due to advancements in dynamic scheduling algorithms, and efficient memory management techniques like PagedAttention; here’s a [good blog post on the topic](https://www.anyscale.com/blog/continuous-batching-llm-inference).
 
-## SGLang
+# SGLang
 
 At times, you may need your LLM to generate a valid JSON output. However, since LLMs are inherently stochastic, ensuring accuracy can be challenging. Additionally, if you require the JSON to contain specific predefined keys, you risk wasting computational resources on tokens that should be generated deterministically, increasing the chances of output errors.
 
@@ -149,7 +149,7 @@ In the open-source world, there is a great framework called **SGLang (Structured
 
 Similar to vLLM, SGLang is easy to deploy, supports numerous LLMs, and offers significant flexibility for integration. However, SGLang provides several advanced capabilities that make it particularly attractive for scenarios where structured outputs (also called constrained generation) and flexible programming control are essential.
 
-### **Constrained Generation with Compressed FSM**
+## **Constrained Generation with Compressed FSM**
 
 When dealing with structured outputs like JSON or any other format requiring consistency, the generation process must control which tokens are allowed at every step. 
 
@@ -169,7 +169,7 @@ By utilizing this optimized FSM, SGLang makes sure that structured output is not
 
 ![]({{ site.baseurl }}/assets/images/inference-engines/compressed-fsm.png){: .responsive-image style="--img-desktop:90%; --img-mobile:90%;"}
 
-### **Example of Constrained Generation with SGLang**
+## **Example of Constrained Generation with SGLang**
 
 Let’s take a simple example to illustrate how SGLang’s constrained generation works:
 
@@ -196,7 +196,7 @@ In this example, SGLang ensures that the output JSON format strictly matches a *
 
 SGLang’s powerful combination of **regex-based constraints**, **multi-token optimizations**, and **programmatic control** makes it a highly effective tool for deploying LLMs in production environments that require **predictable and formatted** output.
 
-### **Other Features of SGLang**
+## **Other Features of SGLang**
 
 SGLang offers a rich set of features that make it ideal for deploying and managing LLMs in sophisticated applications. Here are some of the standout capabilities.
 
@@ -251,7 +251,7 @@ Here are some key features of this language:
     For more details, [check out the original paper here](https://arxiv.org/pdf/2312.07104).
     
 
-## Triton Inference Server with TensorRT Backend
+# Triton Inference Server with TensorRT Backend
 
 If you're looking for even faster inference speeds and don't mind a bit more setup complexity, NVIDIA's **Triton Inference Server with TensorRT Backend** could be the solution for you. Built specifically to get the most out of NVIDIA GPUs, it leverages advanced optimization techniques to squeeze out every bit of performance from your LLM deployment.
 
