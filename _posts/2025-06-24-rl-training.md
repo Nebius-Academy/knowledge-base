@@ -1,30 +1,103 @@
+---
+layout: post
+title: "RL in LLM training"
+categories: blog
+permalink: /rl-training/
+---
+
+# Introduction
+
+While Supervised Fine Tuning trains LLMs on pairs $(query, answer)$, explicitly showing to an LLM what to generate, in some cases it may be too difficult (or even impossible) to create such a training dataset. In these cases, **Reinforcement Learning** (**RL**) might save the day. Let's look at several particular situations.
+
+1. Establishing LLM **alignment** with human preferences and values, making an LLM harmless and helpful. This may include it being non-toxic, resistant to jailbreaks, a good conversationalist etc.
+
+  It may be complicated to train an LLM for all that by showing only positive examples. A better idea would be to give the LLM both **positive** and **negative** signal by rewarding it for generating aligned completions and punishing for misaligned generation. This way, it might learn the boundary between good and evil.
+
+  This type of RL training requires a **reward model** - a special neural network that scores each completion, predicting its reward (which might be positive or negative). It is trained on  Though it's additional work, training a reward model, distinguishing alignment from misalignment, is much easier than 
+
+2. Training **long reasoners** such as DeepSeek-R1 or Qwen3. Though SFT may also be used to train an LLM to generate long, non-linear reasoning, gathering a high-quality dataset of non-linear solutions for such training is tedious. On the other hand, with RL, you only need the problems and the answers - no solutions at all! It turns out that a well-pre-trained model will emerge as a long reasoner with as little training signal as:
+
+  - Answer supervision - reward for the correct one
+
+  - Format supervision - reward if the model abides an html format such as <think>...</think> <answer>...</answer>
+
+  During training, LLM generates solutions to given problems - and the feedback described above helps the training algorithm to steer an LLM towards giving correct answers and, quite unexpectedly, towards generating long, non-linear solutions.
+  
+3. Fine tuning LLMs to perform agentic tasks in complex environments. Examples might include 
+
+  - Multi-turn web information retrieval, see [WebDancer](https://arxiv.org/pdf/2505.22648)
+
+  - LLM-orchestrated application interaction scenarios, such as web shopping ("Return my last ordered Amazon t-shirt and buy it one size larger"), see [AppWorld](https://appworld.dev/) for examples of tasks and [Reinforcement Learning for Long-Horizon Interactive LLM Agents](https://arxiv.org/pdf/2502.01600) for an example of an agent
+
+  - And even playing games, see [RAGEN](https://arxiv.org/pdf/2504.20073)
+
+  In such scenarios, SFT isn't feasible. Even if we could gather a large dataset of "correct" action sequences, it's very important for the agent to make mistakes and learn on them. With that, RL helps.
+
+## Reinforcement learning in a nutshell
+
+*You may skip this section if you have already read it in the [LLM Training Overview](https://nebius-academy.github.io/knowledge-base/llm-training-overview/) long read.*
+
+Imagine you want to train an AI bot to play [Prince of Persia](https://www.youtube.com/watch?v=FGQmtlxllWY) (the 1989 game). In this game, the player character (that is, the titular prince) can:
+
+- Walk left or right, jump and fight guards with his sword
+- Fall into pits, get impaled on spikes, or killed by guards
+- Run out of time and lose
+- Save the princess and win
+
+![]({{ site.baseurl }}/assets/images/llm-training-overview/pop.png){: .responsive-image style="--img-desktop:60%; --img-mobile:90%;"}
+
+The simplest AI bot would be a neural network that takes the current screen (or maybe several recent screens) as an input and predicts the next action – but how to train it?
+
+A supervised learning paradigm would probably require us to play many successful games, record all the screens, and train the model to predict the actions we chose. But there are several problems with this approach, including the following:
+
+- The game is quite long, so it'd simply be too tiresome to collect a satisfactory number of rounds.
+- It's not sufficient to show the right ways of playing; the bot should also learn the moves to avoid.
+- The game provides a huge number of possible actions on many different screens. It's reasonable to expect that successful games played by experienced gamers won't produce data with the level of necessary diversity for the bot to "understand" the entire distribution of actions.
+
+So, these considerations have us move to consider training the bot by **trial-and-error**:
+
+1. Initializing its behavior ("**policy**") somehow.
+2. Allowing it to play according to this policy, checking various moves (including very awkward ones) and to enjoy falling to the bottom of a pit, and so on.
+3. Correct the policy based on its success or failures.
+4. Repeat step 2 and 3 until we're tired of waiting or the bot learns to play Prince of Persia like a pro.
+
+Let's formalize this a bit using conventional RL terminology:
+
+- The (observed) **state** is the information we have about the game at the present moment. In our case, this is the content of the current screen.
+- The **agent** is a bot which is capable of several **actions**.
+- The **environment** is the game. It defines the possible states, the possible actions, and the effects of each action on the current state – and which state will be the next.
+- The **policy** is the (trainable) strategy the bot uses for playing. In our case, this is the neural network that predicts actions given the current state, or the state history.
+- The **reward** is the score that we assign to the states. For example, defeating a guard, progressing to a next level, or winning the game might have positive rewards, while falling into a pit or getting wounded by a guard would mean negative rewards.
+
+![]({{ site.baseurl }}/assets/images/llm-training-overview/princely-rl.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
+
+The goal of the training is finding a policy that maximizes reward, and there are many ways of achieving this.
+We'll now see that alignment training has much relevance with Prince of Persia.
+
+## Reinforcement Learning for LLMs
+
+An LLM may be considered as an agent in a single-turn game which terminates after the completion is created. In this case, we have the following components:
+
+- An **agent**: that is, our LLM,
+- An observed **state**: the prompt
+- **Actions**: generation of a completion
+- **Reward**: might be a reward model score or an "answer is correct" reward
+
+![]({{ site.baseurl }}/assets/images/llm-training-overview/rlhf-scheme.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
+
+In complex agentic scenarios, such as web shopping, generating one completion becomes a single step a longer game, which may involve many iterations until the task is accomplished. The state also becomes richer and includes observations from the apps used. The actions are, strictly speaking, still the possible completions, though sometimes it's useful to consider tool calls as distinct answers.
 
 
 
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
-\usepackage{hyperref}
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage{xcolor}
-
-\title{RLHF + DPO math}
-\author{Stanislav Fedotov, Practical Generative AI course}
-\date{January 2024}
-
-\begin{document}
-
-\maketitle
-
-\section{tl;dr}
 
 RLHF and its variations (including DPO) are the tools of directly introducing human preferences into LLMs in contrast to Supervised Fine Tuning that only trains a model to produce likely texts. Note, however, that if an SFT dataset is very aligned and safe, the resulting model may also inherit these qualities to some degree even without the RLHF stage (\href{https://www.microsoft.com/en-us/research/blog/phi-2-the-surprising-power-of-small-language-models/}{Phi-2} model by Microsoft claims to enjoy this).
 
-\bigskip
 
-\textbf{Important notation}:
-\begin{itemize}
-\item $\pi_{\theta}(y|x)$ is the LLM with (trainable) weights $\theta$ which takes a prompt $x$ and produces a completion $y$ or, rather, probabilities of all possible completions given $x$.
+If you're new to RL, we recommend you to check our [Reinforcement Learning in a Nutshell](https://nebius-academy.github.io/knowledge-base/llm-training-overview/#reinforcement-learning-in-a-nutshell) guide before proceeding. We'll only revise the basic terminology and notation.
+
+
+* RL training 
+* $\pi_{\theta}(y|x)$ is the LLM with (trainable) weights $\theta$ which takes a prompt $x$ and produces a completion $y$ or, rather, probabilities of all possible completions given $x$.
 \item $\pi_{\mathrm{ref}}(y|x)$ is the frozen reference model. It is usually $\pi_{\mathrm{SFT}}(y|x)$, the LLM after Supervised Fine Tuning and before RLHF.
 \end{itemize}
 
