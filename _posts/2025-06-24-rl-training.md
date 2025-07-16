@@ -85,7 +85,88 @@ An LLM may be considered as an agent in a single-turn game which terminates afte
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/rlhf-scheme.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
 
-In complex agentic scenarios, such as web shopping, generating one completion becomes a single step a longer game, which may involve many iterations until the task is accomplished. The state also becomes richer and includes observations from the apps used. The actions are, strictly speaking, still the possible completions, though sometimes it's useful to consider tool calls as distinct answers.
+In complex agentic scenarios, such as web shopping, generating one completion becomes a single step a longer game, which may involve many iterations until the task is accomplished. The state also becomes richer and includes observations from the apps used. The actions are, strictly speaking, still the possible completions, including tool calls.
+
+Reinforcement Learning strategies might be classified along several axes:
+
+* *Learning goal*, as discussed earlier, including alignment, long-reasoning capabilities etc.
+* *Learning tactics*, including PPO, DPO, GRPO, DAPO etc. We'll discuss them in details further in this long read.
+* *Reward types*, including:
+
+    * **Explicit (rule-based) rewards** such as answer accuracy, format correctness, or success in performing a web shop task. They are used for training long reasoners and components of agentic systems.
+    * **Trainable rewards**. These are used when rule-based scoring is impossible. For example, scoring helpfulness of a dialog or harmlessness of bot's answers requires training a **reward model**. We'll discuss training methodology in the respective section. 
+    * **"Intrinsic reward"**, which is actually used to replace RL by SFT. We'll talk about it in the DPO section.
+
+**Note**. The term "**RLHF**" (**Reinforcement Learning with Human Feedback**) historically refers to alignment training with a reward model, which is trained on human-annotated data (hence human feedback). 
+
+In this long read, we'll discuss most notable RL strategies used to train LLMs. We'll focus on the single-turn scenario of alignment / long reasoning training; this will make things easier for us and allow to avoid pressing a whole RL course into one text. At the same time, we won't be shy with math, so read with caution.
+
+# Part 1. Reward model training
+
+A reward model $r(x, y)$ measures how much a completion $y$ is "appropriate" for a prompt $x$. Being "appropriate" might mean many things, depending on our training goals. It may encompass:
+
+* Whether an LLM exhibits **bias** - a systematic, specific treatment of certain groups of people or, more broadly, objects or phenomena. An example of bias is an image generation model that only generates men when prompted by "A portrait of a CTO".
+* Whether an LLM is **harmless** - can it be provoked to generate abusive, toxic, or explicit content?
+* Whether an LLM's answers are **helpful**.
+
+The reward is a **ranking model**. Its meaning is: if $r(x, y) > r(x, y')$, then $y$ is a more appropriate completion than $y'$.
+
+**CAUTION**: It is **not** a classification model. It doesn't say "this is good, that is bad" (not in a typical situation, at least). Even for two good completions, it allows to say which is better.
+
+Training strategy depends on what kind of data we are able to collect. As in any ranking task, there are three main types of data:
+
+* **Pairwise**. That is, we train the model on triplets $(x, y_a, y_r)$, where where $y_a$ is more appropriate than $y_r$. In other words, the data is "Completion $y_a$ is more appropriate than Completion $y_r$ for the prompt $x$". Typical RLHF/DPO fine tuning consumes this very type of data, and the other two types are way more niche. The reward model is trained by minimizing
+$$\mathcal{L}_{RM} = -\mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}\log\sigma(r(x, y_a) - r(x, y_r)),$$
+where $\mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}$ means in practice: "average over a batch of triplets sampled from the whole dataset $\mathcal{D}$".
+
+If you want to understand this loss better, check the next subsection (Terry-Bradley model).
+
+* **Pointwise**. It uses data like "thumbs up/down for this completion" of "Five stars for this completion". A reward model for this could be trained for ordinary classification or regression task, or rather you can use an intrinsic reward function. Pointwise reward is a rare choice, but you can check the [KTO (Kahneman-Tversky optimization) paper](https://arxiv.org/pdf/2402.01306) for an example.
+
+* **Listwise**. The data is like "Completion $y_1$ is better than completion $y_2$ which is better than completion $y_3$ and so on". It is possible to collect such data with ChatGPT or other powerful LLMs. This kind of data isn't very popular either; for an example, check [Starling-7B](https://starling.cs.berkeley.edu/).%see \hyperref[sec:listwise]{this subsection}
+
+**Note: RLHF vs RLAIF**. Traditionally, data for reward model training is labeled with human annotators. An example pipeline might be:
+
+1. A number of prompts is chosen
+2. For each prompt, several completions (say, 5 or 7) are generated
+3. For each prompt, human annotators rank all the completions
+4. The best ranking completion is labeled as *chosen*; the worst ranking is labeled as *rejected*. All other completions are discarded.
+
+Due to involvement of humans in the data labeling process, RLHF is called Reinforcement Learning with *Human Feedback*. In most cases, top LLM creators indeed try to employ humans in order to incorporate real human preference into the reward model.
+
+However, human labelers aren't cheap, so in some cases already-trained high-quality LLMs are used to score completions. If that's the case, RL training gets the name **RLAIF** (Reinforcement Learning with *AI feedback*). This way, in a sense, the completion-labeling LLM is **distilled** into the reward model and, through it, into the new, RLAIF-trained LLM.
+
+## Bradley-Terry model
+
+**Math warning**
+
+The Bradley-Terry model was created as a ranking model. Imagine, for example, that several teams compete in a championship and we want to make a total ranking of the teams. We can do it by assigning to the $i$-th team a numerical measure $\beta_i$ of its strength. Ideally, the outcome of a competition between teams $i$ and $j$ should be determined by $\beta_i - \beta_j$.
+
+The Bradley-Terry model treats the outcome of a game between teams $(i, j)$ as a Bernoulli random variable with probability of $i$ winning equal to
+
+$$p^*(team_i\succ team_j) = \sigma(\beta_i - \beta_j) = \frac{1}{1 + e^{-(\beta_i - \beta_j)}} = $$
+$$=\frac{e^{\beta_i - \beta_j}}{1 + e^{\beta_i - \beta_j}} = \frac{e^{\beta_i}}{e^{\beta_i} + e^{\beta_j}}$$
+
+Simply put, it's our usual way of making $\beta_i - \beta_j$ into probabilities of winning, such that going $team_i\succ team_j\longleftrightarrow team_i\succ team_j$ is made by sign change $\beta_i - \beta_j \longleftrightarrow \beta_j - \beta_i$:
+
+$$p^*(team_j\succ team_j) = 1 - \sigma(\beta_i - \beta_j) = \sigma(\beta_j - \beta_j)$$
+
+
+During LLM training we work with user preferences in the form "for a prompt $x$ the completion $y_a$ is better than $y_r$" (*a* and *r* stand for "accepted" and "rejected"). 
+
+We model the strength of a completion $y$ of a prompt $x$ by the reward model value $r^*(x, y)$. The formulas above become:
+
+$$p^*(y_a\succ y_r | x) = \sigma(r^*(x, y_a) - r^*(x, y_r))$$
+
+The reward model is trained by negative loglikelihood optimization:
+
+$$\mathcal{L}_{RM} = -\mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}\log\sigma(r^*(x, y_a) - r^*(x, y_r)),$$
+
+where $(x, y_a, y_r)\sim\mathcal{D}$ stands for sampling from the dataset that we were lucky to collect. So, $\mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}$ stands in practice for "average over all $(x, y_a, y_r)$ from the dataset $\mathcal{D}$" or "average over all $(x, y_a, y_r)$ in a batch sampled from the dataset $\mathcal{D}$".
+
+# Part 2. PPO
+
+RLHF (Reinforcement Learning with Human Feedback) [was the first time](https://arxiv.org/pdf/2203.02155) RL showed up in LLM post-training. 
 
 
 
@@ -120,23 +201,7 @@ There are other possible regularizations (see below in the main text).
 
 \end{itemize}
 
-\subsection{The reward model}
-\begin{itemize}
-\item A reward model $r(x, y)$ measures how much a completion $y$ is appropriate for a prompt $x$. We introduce the notion of ``appropriateness'' with data. How --- see below.
-\item The reward is a \textit{ranking model}. Its meaning is: if $r(x, y) > r(x, y')$, then $y$ is a more appropriate completion than $y'$.
 
-It is \textbf{not} a classification model. It doesn't say ``this is good, that is bad'' (not in a typical situation, at least). Even for two good completions, it allows to say which is better.
-
-\item Training strategy depends on what kind of data we are able to collect. As in any ranking task, there are three main types of data:
-\begin{itemize}
-\item Pairwise. That is, we fine tune on triplets $(x, y_a, y_r)$, where where $y_a$ is more appropriate than $y_r$. In other words, the human feedback is ``Completion $y_a$ is more appropriate than Completion $y_r$ for the prompt $x$''. Typical RLHF/DPO fine tuning consumes this very type of data, and the other two types are way more niche. The reward model is trained by minimizing
-$$\mathcal{L}_{RM} = -\mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}\log\sigma(r(x, y_a) - r(x, y_r)).$$
-
-\item Pointwise. It uses data like ``thumbs up/down for this completion'' of ``Five stars for this completion''. A reward model for this could be trained for ordinary classification or regression task, or rather you can use an intrinsic reward function. Pointwise reward is a rare choice, but you can check the \href{https://arxiv.org/pdf/2402.01306}{KTO (Kahneman-Tversky optimization) paper} for an example.%, see \hyperref[sec:pointwise]{this subsection}.
-
-\item Listwise. The data is like ``Completion $y_1$ is better than completion $y_2$ which is better than completion $y_3$ and so on''. It is possible to collect such data with ChatGPT or other powerful LLMs. This kind of data isn't very popular either; for an example, check \href{Starling-7B}{https://starling.cs.berkeley.edu/}.%see \hyperref[sec:listwise]{this subsection}
-
-\end{itemize}
 
 \end{itemize}
 
@@ -162,35 +227,7 @@ as an intrinsic reward model. See \hyperref[sec:DPO]{DPO section} for details.
 \newpage
 \section{RLHF}
 
-\subsection{Bradley-Terry model}
 
-The Bradley-Terry model was created as a ranking model. Imagine, for example, that several teams compete in a championship and we want to make a total ranking of the teams. We can do it by assigning to the $i$-th team a numerical measure $\beta_i$ of its strength. Ideally, the outcome of a competition between teams $i$ and $j$ should be determined by $\beta_i - \beta_j$.
-
-The Bradley-Terry model treats the outcome of a game between teams $(i, j)$ as a Bernoulli random variable with probability of $i$ winning equal to
-
-$$p^*(team_i\succ team_j) = \sigma(\beta_i - \beta_j) = \frac{1}{1 + e^{-(\beta_i - \beta_j)}} = $$
-$$=\frac{e^{\beta_i - \beta_j}}{1 + e^{\beta_i - \beta_j}} = \frac{e^{\beta_i}}{e^{\beta_i} + e^{\beta_j}}$$
-
-Simply put, it's our usual way of making $\beta_i - \beta_j$ into probabilities of winning, such that going $team_i\succ team_j\longleftrightarrow team_i\succ team_j$ is made by sign change $\beta_i - \beta_j \longleftrightarrow \beta_j - \beta_i$:
-
-$$p^*(team_j\succ team_j) = 1 - \sigma(\beta_i - \beta_j) = \sigma(\beta_j - \beta_j)$$
-
-%\begin{center}
-%\includegraphics[width=14cm]{state-space-mind-map.png}
-%\end{center}
-\subsection{Reward model}
-
-During LLM training we work with user preferences in the form ``for a prompt $x$ the completion $y_a$ is better than $y_r$'' (\textit{a} and \textit{r} stand for ``accepted'' and ``rejected''). 
-
-We model the strength of a completion $y$ of a prompt $x$ by the reward model value $r^*(x, y)$. The formulas above become:
-
-$$p^*(y_a\succ y_r | x) = \sigma(r^*(x, y_a) - r^*(x, y_r))$$
-
-The reward model is trained by negative loglikelihood optimization:
-$$\mathcal{L}_{RM} = -\mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}\log\sigma(r^*(x, y_a) - r^*(x, y_r)),$$
-where $(x, y_a, y_r)\sim\mathcal{D}$ stands for sampling from the dataset that we were lucky to collect. So, $\mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}$ stands in practice for ``sum over all $(x, y_a, y_r)$ from the dataset $\mathcal{D}$''.
-
-\bigskip
 
 \subsection{RLHF}
 
