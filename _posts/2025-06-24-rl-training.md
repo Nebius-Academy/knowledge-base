@@ -183,14 +183,113 @@ $$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}r(x, y)\longrightarrow\ma
   Here, $\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}$ techincally describes the following process:
 
   1. We sample a batch of prompts from $\mathcal{D}$
-  2. For each prompt, we generate a completion $y$ using the LLM $\pi_{\theta}$
+  2. For each prompt, we generate a completion $y$ using the current LLM $\pi_{\theta}$ (yes, the one we're training, and it changes during training)
   3. We score each pair $(x, y)$ with the reward model $r$
   4. We average rewards in the batch
  
-## Policy gradient
+## Step 1. The reward is not the loss
 
 Now, we would love to say that $y = \pi_{\theta}(y|x)$ and we're just maximizing 
-$r(x, \pi_{\theta}(y|x))$, but that's not true. The problem is that $\pi_{\theta}(y|x)$ *is not a function*, because it involves token sampling --- so it's a stochastic procedure, and we can't just differentiate it and optimize $r$ with gradient descent.
+$r(x, \pi_{\theta}(y|x))$, but that's not true. The problem is that $\pi_{\theta}(y|x)$ *is not a function*, because it involves token sampling. The right way of putting it is $y = \pi_{\theta}(y|x)$; this is a stochastic procedure, and we can't just differentiate through it and optimize $r$ with gradient descent.
+
+We'll be able to overcome this obstacle through math. Let's recall the actual loss function:
+
+$$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}r(x, y)=$$
+
+$$\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}r(x, y)$$
+
+At this point it's useful to recall the definition of mathematical expectation, rewriting it as
+
+$$\mathcal{L} = 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)r(x, y)$$
+
+Here, we treat $\pi_{\theta}(y|x)$ as the probability of $y$ given $x$, as predicted by $\pi_{\theta}$.
+
+## Step 2. Policy gradient
+
+Since we want to optimize the loss with stochastic gradient descent (or, more accurately, some of its modifications such as Adam), we need to actually find $\nabla_{\theta}\mathcal{L}$. Moreover, we want to estimate the gradient using not the whole dataset, but rather a batch sampled from it.
+
+We'll start by recalling how this works for usual loss functions, and then we'll understand what's wrong with ours. In supervised tasks (classification, regression, etc), we have, for a model $h_{\phi}(z)$ with parameters $\phi$, a loss
+
+$$\mathcal{G} = \mathbb{E}_{z\in Z}G(h_{\phi}(z)) = \frac{1}{|Z|}\sum_{z\in Z}G(h_{\phi}(z))$$
+
+(Here, $\frac{1}{|Z|}\sum$ might become $\int$ if we assume that the dataset is infinite.)
+
+The gradient is
+
+$$\nabla_{\phi}\mathcal{G} = \frac{1}{|Z|}\sum_{z\in Z}\nabla_{\phi}G(h_{\phi}(z)) = \mathbb{E}_{z\in Z}G(h_{\phi}(z))$$
+
+Now, given a batch $B\subset Z$, we can estimate this mathematical expectation as
+
+$$\mathbb{E}_{z\in Z}G(h_{\phi}(z)) \approx \frac1{|B|}\sum_{z\in B}\nabla_{\phi}G(h_{\phi}(z)),$$
+
+which gives us exactly the familiar stochastic gradient descent.
+
+Now, let's find the derivative of $\nabla_{\theta}\mathcal{L}$:
+
+$$\nabla_{\theta}\mathcal{L} = \nabla_{\theta}1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)r(x, y) = $$
+
+$$=1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\left[\nabla_{\theta}\pi_{\theta}(y|x)r(x, y)\right]$$
+
+Now, to estimate this gradient on a batch of prompts $x#, we need to write this down as
+
+$$\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}(\text{something}) = 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)\cdot[\text{something}],$$
+
+But how?! 
+
+Well, let's do a very naive transformation:
+
+$$1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\nabla_{\theta}\pi_{\theta}(y|x)r(x, y) = $$
+
+$$= 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)\cdot \frac{\nabla_{\theta}\pi_{\theta}(y|x)}{\nabla_{\theta}\pi_{\theta}(y|x)}r(x, y)$$
+
+Luckily, $\frac{\nabla_{\theta}\pi}{\pi} = \nabla_{\theta}\log{\pi}$, so we can rewrite this as:
+
+$$= 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)\cdot \nabla_{\theta}\log\pi_{\theta}(y|x)r(x, y) = 
+\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y)$$
+
+Now, given a batch of prompts $B$, we can estimate this as
+
+$$1\frac{|D|}\sum_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}\,\log\pi_{\theta}(y|x)r(x, y)$$
+
+Note that we actually estimated the internal mathematical expectation $\mathbb{E}_{y\sim\pi_{\theta}(y|x)}$ with just one point. This makes the estimate not very accurate, but at least theoretically unbiased.
+
+## Step 3. Advantage
+
+Though the gradient estimate we've produced is unbiased, it is still very noisy, with high variance. A common practice is replacing the reward in the loss with the **advantage functon** 
+
+$$\widehat{A}(x, y) = r(x, y) - \widehat{V}_{\phi}(x),$$
+
+where $\widehat{V}_{\phi}(x)$ is an estimate of the average reward of $r(x, y)$, trained alongside $\pi_{\theta}$ as a separate "value head" with the loss
+
+$$\frac1{|B|}\sum{x\in B, y\sim\pi_{\theta}(y|x)}\left(\widehat{V}_{\phi}(x) - r(x, y)\right)$$
+
+The cool fact about advantage is that
+
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)\widehat{A}(x, y) =$$
+
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 
+\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)\widehat{V}(x) = $$
+
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 
+\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\widehat{V}(x)\underbrace{\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)}_{=1} = $$
+
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 
+\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\widehat{V}(x)\underbrace{\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)}_{=1} = $$
+
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 0$$
+
+That is, replacing $r(x, y)$ by $\widehat{A}(x, y)$ doesn't change the gradient of the loss. At the same time, it can be proved that it decreases the gradient's variance. (Actually, $\widehat{V}_{\phi}(x)$ is, in a sense, the "optimal" thing we can subtract from $r(x,y)$ in order to reduce the gradient's variance.) We'll omit the mathematical proof here, highlighting instead the common sense behind the advantage function. Imagine that we're solving the alignment problem with RL. Then:
+
+* If the prompt itself is toxic and manipulative, $\widehat{V}_{\phi}(x)$ is likely low, and we won't punish the model too harsh for low $r(x, y)$.
+* On the other hand, if the prompt is quite innocent, $\widehat{V}_{\phi}(x)$ is likely high, and it's only reasonable to strictly penalize the model for completions that score far beyond mean expected reward for the prompt $x$.
+
+## Step 4. Importance sampling
+
+
+
+
+## Step 4. KL regularization
+
 
 
 
