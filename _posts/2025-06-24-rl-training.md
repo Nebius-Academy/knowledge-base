@@ -166,85 +166,34 @@ where $(x, y_a, y_r)\sim\mathcal{D}$ stands for sampling from the dataset that w
 
 # Part 2. PPO
 
-RLHF (Reinforcement Learning with Human Feedback) [was the first time](https://arxiv.org/pdf/2203.02155) RL showed up in LLM post-training. 
+**PPO** (**Proximal Policy Optimization**) was the algorithm used in the [original RLHF](https://arxiv.org/pdf/2203.02155) for creation of InstructGPT from GPT-3. Up to some tweaks, it's still used now despite the rise of GRPO. In this section, we'll try to explain what motivated PPO's quite complicated loss function.
 
+**Caution**. We will only discuss a single-step setup, as in RLHF or long-reasoner training. But keep in mind that PPO can be used in general case as well - for example to train an LLM for multi-step agentic scenarios. If you want to learn what PPO looks like in general case, please check some full RL course, or [this post by Lilian Weng](https://lilianweng.github.io/posts/2018-02-19-rl-overview/), or [OpenAI's introduction to RL](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html).
 
+---
 
+To start with, we have a certain reward function $r(x, y)$ ($x$ is a prompt and $y$ is its completion). It may be a trained reward function that scores helpfullness/harmlessness or a detetministic one, like final answer correctness. Anyway, it should be fixed during RL training --- in RLHF, the reward model is trained *before* RL starts.
 
-RLHF and its variations (including DPO) are the tools of directly introducing human preferences into LLMs in contrast to Supervised Fine Tuning that only trains a model to produce likely texts. Note, however, that if an SFT dataset is very aligned and safe, the resulting model may also inherit these qualities to some degree even without the RLHF stage (\href{https://www.microsoft.com/en-us/research/blog/phi-2-the-surprising-power-of-small-language-models/}{Phi-2} model by Microsoft claims to enjoy this).
+Some notations:
 
-
-If you're new to RL, we recommend you to check our [Reinforcement Learning in a Nutshell](https://nebius-academy.github.io/knowledge-base/llm-training-overview/#reinforcement-learning-in-a-nutshell) guide before proceeding. We'll only revise the basic terminology and notation.
-
-
-* RL training 
-* $\pi_{\theta}(y|x)$ is the LLM with (trainable) weights $\theta$ which takes a prompt $x$ and produces a completion $y$ or, rather, probabilities of all possible completions given $x$.
-\item $\pi_{\mathrm{ref}}(y|x)$ is the frozen reference model. It is usually $\pi_{\mathrm{SFT}}(y|x)$, the LLM after Supervised Fine Tuning and before RLHF.
-\end{itemize}
-
-\subsection{What is RL in the context of LLMs}
-
-\begin{itemize}
-\item In the usual setup we train an LLM on (prompt, completion) data. Thus, a model learns to produce likely completions.
-
-In the RL (Reinforcement Learning) setup we have a separate \textbf{reward model} $r(x, y)$ showing how much a completion $y$ is appropriate a the prompt $x$. During training, we sample $x$ from data, then let the LLM generate $y = \pi_{\theta}(y|x)$, and we train the LLM for maximizing the reward $r(x, y)$ for $y\sim\pi_{\theta}(y|x)$.
-
-\item In RL fine tuning $r(x, y)$ is usually a differentiable function. So, we don't even need the vast RL tool set developed to cope with "win/lose"-like discrete reward (which is good). 
-
-\item The reward is $r(x, y)$ for $y\sim\pi_{\theta}(y|x)$, and we need additional hacks to differentiate through the sampling process. This can be done, for example, with log-derivative trick (see \ref{sec:log-derivative}).
-
-\item If we simply maximize the reward, we can harm LLM's generation abilities. You can see it as ``If we make an LLM very polite, it can get very boring and unhelpful''. So, we don't want the LLM drift far away from $\pi_{\mathrm{ref}}(y|x)$ (LLM before RL). To achieve this, we apply regularization.
-
-\item The most popular regularizer is the KL-divergence between output probabilities. So, the loss becomes
-$$r(x, \pi_{\theta}(y|x)) - \beta\cdot\mathrm{KL}(\pi_{\theta}(y|x)\| \pi_{\mathrm{ref}}(y|x))$$
-There are other possible regularizations (see below in the main text).
-
-\end{itemize}
-
-
-
-\end{itemize}
-
-\subsection{Intrinsic reward model}
-
-\begin{itemize}
-\item As it was shown in the DPO (Direct Preference Optimization) paper, we don't need to train an external reward model, at least not in pairwise setup. Instead, we can use
-$$r(x, y) = \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{ref}}(y|x)}$$
-as an intrinsic reward model. See \hyperref[sec:DPO]{DPO section} for details.
-
-\item Note the difference between RLHF and DPO fine tuning strategies:
-\begin{itemize}
-\item In RLHF you train the reward model on triplets $(x, y_a, y_r)$ ($y_a$ is more appropriate than $y_r$) and on RL stage you use only $x$ pairs and sample $y = \pi_{\theta}(y|x)$.
-\item In DPO you fine tune LLM on triplets $(x, y_a, y_r)$ with the following loss:
-\begin{align*}
-\sigma\left(\beta\log\frac{\pi_{\theta}(y_a|x)}{\pi_{\mathrm{ref}}(y_a|x)} - \beta\frac{\pi_{\theta}(y_r|x)}{\pi_{\mathrm{ref}}(y_r|x)}\right)
-\end{align*}
-\end{itemize}
-
-\item Intrinsic reward models allows using RL fine tuning even outside alignment training, to extract more information from supervised fine tuning data when the potential of SFT itself is already depleted. See \hyperref[sec:self-play]{Self-Play section} for details.
-\end{itemize}
-
-\newpage
-\section{RLHF}
-
-
-
-\subsection{RLHF}
-
-RLHF allows to update an LLM given a reward model $r(x, y)$. 
-
-The idea is quite simple:
-\begin{itemize}
-\item We start to denote our LLM by $\pi_{\theta}(y|x)$ and call it \textbf{policy}. But don't be afraid: it's just our good old LLM with parameters $\theta$ that predicts completion $y$ given a prompt $x$ or, more generally, probabilities of completions $y$ given $x$.
-\item We take the same dataset $\mathcal{D} = \{(x, y_a, y_r)\}$ that we used for training the reward model;
-\item We sample $(x, y_a, y_r)$ from $\mathcal{D}$, throw away $y_a, y_r$ and generate a new completion $y$ from $\pi_{\theta}(y|x)$. We denote this sampling process $x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)$.
-\item More accurately, you usually generate $y$ token by token and each new token gives a new summand to the optimization objective.
-\item We optimize reward $r(x, y)$ of generated $y$ in pursuit of making the LLM give us more rewarding completions:
+* Starting from now, we'll be denoting our LLM by $\pi_{\theta}(y|x)$ and calling it \textbf{policy} to match the traditional RL terminilogy. But don't be afraid: it's just our good old LLM with parameters $\theta$ that predicts completion $y$ given a prompt $x$ or, more generally, probabilities of completions $y$ given $x$.
+* We take a dataset of prompts $\mathcal{D} = \{(x)\}$. Yes, no completions now;
+* We want to maximize the reward $r(x, y)$ of generated $y$ in pursuit of making the LLM give us more rewarding completions:
 $$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}r(x, y)\longrightarrow\max\limits_{\theta}.$$
-We would like to say that $y = \pi_{\theta}(y|x)$ and our maximization task is just
-$$\sum_{x\in\mathcal{D}}r(x, LLM_{\theta}(x))\longrightarrow\max\limits_{\theta}.$$
-But this is not so simple. Below, we'll see why.
-\end{itemize}
+  Here, $\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}$ techincally describes the following process:
+
+  1. We sample a batch of prompts from $\mathcal{D}$
+  2. For each prompt, we generate a completion $y$ using the LLM $\pi_{\theta}$
+  3. We score each pair $(x, y)$ with the reward model $r$
+  4. We average rewards in the batch
+ 
+## Policy gradient
+
+Now, we would love to say that $y = \pi_{\theta}(y|x)$ and we're just maximizing 
+$r(x, \pi_{\theta}(y|x))$, but that's not true. The problem is that $\pi_{\theta}(y|x)$ *is not a function*, because it involves token sampling --- so it's a stochastic procedure, and we can't just differentiate it and optimize $r$ with gradient descent.
+
+
+
 
 \bigskip
 
