@@ -168,7 +168,7 @@ where $(x, y_a, y_r)\sim\mathcal{D}$ stands for sampling from the dataset that w
 
 **PPO** (**Proximal Policy Optimization**) was the algorithm used in the [original RLHF](https://arxiv.org/pdf/2203.02155) for creation of InstructGPT from GPT-3. Up to some tweaks, it's still used now despite the rise of GRPO. In this section, we'll try to explain what motivated PPO's quite complicated loss function.
 
-**Caution**. We will only discuss a single-step setup, as in RLHF or long-reasoner training. But keep in mind that PPO can be used in general case as well - for example to train an LLM for multi-step agentic scenarios. If you want to learn what PPO looks like in general case, please check some full RL course, or [this post by Lilian Weng](https://lilianweng.github.io/posts/2018-02-19-rl-overview/), or [OpenAI's introduction to RL](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html).
+**Caution**. We will only discuss a single-turn setup, as in RLHF or long-reasoner training. But keep in mind that PPO can be used in general case as well - for example to train an LLM for multi-turn agentic scenarios. If you want to learn what PPO looks like in general case, please check some full RL course, or [this post by Lilian Weng](https://lilianweng.github.io/posts/2018-02-19-rl-overview/), or [OpenAI's introduction to RL](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html).
 
 ---
 
@@ -312,6 +312,10 @@ $$= \frac1{|B|}\sum_{y}\pi_{\text{old}}(y\vert x)\cdot\frac{\pi_{\theta}(y\vert 
 
 $$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) =: \mathcal{L}$$
 
+This change brings yet another benefit. Let's understand what it is.
+
+If we change the policy after each batch - which is unlikely to be spectacularly large - and sample new completions from the new model, it seems like we're doing two changes at a time: parameter update + data sampling process update. That might be a bit too rapid; we might loose control over the training process. A milder strategy would be to sample a larger batch from $\pi_{old}(y\vert x)$ and then to make several batch-gradients steps (with smaller batches) on this data, before replacing $\pi_{old}(y\vert x)$ by the updated policy. This might make the training process smoother. And indeed, in practice $\pi_{old}(y\vert x)$ lasts not for a single batch but for a certain training epoch.
+
 ## Step 5. Reward hacking and KL regularization
 
 If you get too carried away with maximizing reward (human preferences), you can ruin the quality. An absurd, but illustrative example: a model that politely refuses to answer any question is perfectly non-toxic, although completely useless. Situations, when the model learns to increase reward at all costs, eventually harming the actual goal behind the reward, are known as **reward hacking**. 
@@ -334,24 +338,99 @@ $$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old
 
 **Note 1**: This objective is being *maximized*. So, the KL summand here is *minimized*.
 
-**Note 2**: KL-divergence is outside $\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}$. If we want to drag it inside, we will use the definition of KL-divergence $\mathbb{D}_{\mathrm{KL}}(p||q) = \sum_i p_i\log\frac{p_i}{q_i} = \mathbb{E}_p\log\frac{p}{q}$ and write instead
+**Note 2**: Having both $\pi_{\text{old}}$ and $\pi_{\text{init}}$ in one formula might be confusing, but it's two different policy snapshots:
+
+* $\pi_{\text{old}}$ is the pre-current-epoch policy.
+* $\pi_{\text{init}}$ is the initial, pre-RL policy.
+
+**Note 3**: KL-divergence is outside $\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}$. If we want to drag it inside, we will use the definition of KL-divergence $\mathbb{D}_{\mathrm{KL}}(p||q) = \sum_i p_i\log\frac{p_i}{q_i} = \mathbb{E}_p\log\frac{p}{q}$ and write instead
 $$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y|x)||\pi_{\text{init}}(y|x)\right] - \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\text{init}}(y|x)}\right]$$
 
-**Note 3**: The original \href{https://arxiv.org/pdf/2203.02155.pdf}{InstructGPT paper} also suggesting adding one more summand to the objective to directly control performance on the pretraining dataset:
+**Note 4**: The original \href{https://arxiv.org/pdf/2203.02155.pdf}{InstructGPT paper} also suggesting adding one more summand to the objective to directly control performance on the pretraining dataset:
 
 $$
-\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y|x)||\pi_{\text{init}}(y|x)\right] - \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\text{init}}(y|x)}\right] + $$
+\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\text{init}}(y|x)}\right] + $$
 
 $$+ \gamma\mathbb{E}_{x\sim\mathbb{D}_{\text{pretrain}}}\log\pi_{\theta}(x)$$
 
 ## Step 6. Clipped Surrogate Objective
 
-\item KL-divergence in not the only possible mechanism to control the drift of $\pi_{\theta}(y|x)$ from $\pi_{\mathrm{SFT}}(y|x)$. Another one is \textbf{Clipped Surrogate Objective}. The corresponding loss looks like this:
-\begin{align*}
-\mathcal{L}_{\mathrm{RLHF-clip}} = &\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}\min\left[\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}r(x, y); \mathrm{clip}\left(\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}, 1 - \epsilon, 1 + \epsilon\right)r(x, y) \right],
-\end{align*}
+KL-divergence in not the only possible mechanism to control the drift of $\pi_{\theta}(y|x)$ from $\pi_{\text{init}}(y|x)$. **Clipped Surrogate Objective** aims to prevent extreme updates during gradient descent instead of imposing global regularization. 
 
-The ratio $\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}$ comes from the original PPO where it plays the role of importance sampling. Clipping allows to avoid extreme values of $\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}$ and, as a consequence, extreme changes of the policy.
+The idea is as follows. As we maximize 
+
+$$\frac1{|B|}\sum_{x\in B, y\sim\pi_{\theta}(y\vert x)}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y),$$
+
+for a given batch $B$, both advantages and the old policy are fixed, so we can only change $\pi_{\theta}(y\vert x)$. Under such conditions, ideally $\pi_{\theta}(y\vert x)$ should 
+
+* become $1$ for $(x, y)$ with $\widehat{A}(x, y) > 0$ and
+* become $0$ for $(x, y)$ with $\widehat{A}(x, y) < 0$.
+
+And it should occur as quickly as it can - which means potentially large gradients and drastic changes in the parameters $\theta$. (Length of the gradient = speed of change.)
+
+To prevent this from happening, let's discourage $\pi_{\theta}(y\vert x)$ from going far from $\pi_{\text{old}}(y\vert x)$ inside one epoch by clipping the importance sampling ratio:
+
+$$\frac1{|B|}\sum_{x\in B, y\sim\pi_{\theta}(y\vert x)}\,\text{clip}\left(\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}(x, y),$$
+
+Here, $\varepsion$ is a hyperparameter, which can typically be 0.2.
+
+**A reminder**. Clipping does the following:
+
+$$\text{clip}(r, 1 - \varepsion, 1 + \varepsilon) = \begin{cases}
+1 - \varepsilon,\ r < 1 - \varepsion,\\
+r,\ 1 - \varepsion \leqslant r < 1 + \varepsion,\\
+1 + \varepsion,\ r \geqslant 1 + \varepsion
+\end{cases}$$
+
+So, basically, clipping stops $\frac{\pi_{\theta}(y\vert x)$ from being updated as soon as it goes far enough from the old policy --- also defining a trust region of sorts.
+
+However, we don't want our objective to become larger than it was before. Indeed, we *maximize* $\mathcal{L}$, and if our manipulations increase it, we're making ourself overly optimistic. So, it's common to take *minimum* between the initial and the clipped loss:
+
+$$
+\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\min\left[\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y), \text{clip}\left(\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}(x, y)\right] 
+$$
+
+This one is \textbf{Clipped Surrogate Objective}. It can be used with KL regularizer term, but often the KL penalty is omitted.
+
+## And that's it!
+
+Indeed, the loss we've written above is the most common formulation of PPO for a single-turn game.
+
+## Per-token objective
+
+So far, we considered an RL setup where the agent (an LLM) produces the whole completion as a single action - and is rewarded only for its final result. However, in many cases *per-token* setup is considered, where an action is generation of a single token. In this case, the reward is calculated for every prefix $y_{\leqslant t}$ of a completion $y$, and the objective features another sum - over $t$:
+$$
+\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y_{\leqslant t}\sim\pi_{old}(y\vert x)}}\min\left[\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}\widehat{A}_t(x, y_{< t}, y_t), \text{clip}\left(\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_t(x, y_{< t}, y_t)\right] \approx
+$$
+
+$$
+\approx \frac{1}{|B|}\sum_{x\in B, y\sim\pi_{old}(y\vert x)}\,\frac1{\text{len}(y)}\sum_{t=1}^{\text{len}(y)}\,\min\left[\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}\widehat{A}_t(x, y_{< t}, y_t), \text{clip}\left(\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_t(x, y_{< t}, y_t)\right]
+$$
+
+This formula looks more or less the same as its single-turn counterpart, but the actual difference hides inside the advantage function $\widehat{A}_t(x, y_{< t}, y_t)$.
+
+In multi-turn setup, it's a more complicated thing. Without going into details, we'll say that
+
+$$\widehat{A}_t(x, y_{< t}, y_t) = Q_t(x, y_{< t}, y_t) - V_t(x, y_{< t}),$$
+
+where
+
+* $V_t(x, y_{< t}, y_t)$ is smth like the expected cumulative reward we can get, if we start with $x, y_{< t}$ and generate further tokens with $\pi_{\theta}$. As before, it is predicted by a trained **value head**.
+* $Q_t(x, y_{< t}, y_t)$ is smth like the expected cumulative reward we can get, if we start with $x, y_{< t}$, *then choose $y_t$ as the next token* and, after that, generate further tokens with $\pi_{\theta}$. There are different ways of calculating it. Probably the most popular is the **1-step** lookahead
+
+  $$Q_t(x, y_{< t}, y_t) \approx r(x, y_{\leqslant t}, y_t) ​+ \gamma V_{t+1}(x, y_{\leqslant t}, y_{t+1)),$$
+
+  where $0 < \gamma < 1$ is a hyperparameter.
+
+Quite often though, a more sophisticated **Generalized Advantage Estimation** is used:
+
+$$\widehat{A}^{\text{GAE}}_t(x, y_{< t}, y_t) = \sum_{l=0}^{\infty}(\gamma\lambda)^l\delta_{t+l},$$
+
+where $0 < \lambda < 1$ is yet another hyperparameter and
+
+$$\delta_l = r(x, y_{\leqslant t}, y_t) ​+ \gamma V_{t+1}(x, y_{\leqslant t}, y_{t+1)) - V_t(x, y_{< t}, y_t)$$
+
+This was sketchy, of course. If you want to truly understand these formulas, please consider taking a full RL course.
 
 
 
