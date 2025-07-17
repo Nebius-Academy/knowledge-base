@@ -92,7 +92,6 @@ Reinforcement Learning strategies might be classified along several axes:
 * *Learning goal*, as discussed earlier, including alignment, long-reasoning capabilities etc.
 * *Learning tactics*, including PPO, DPO, GRPO, DAPO etc. We'll discuss them in details further in this long read.
 * *Reward types*, including:
-
     * **Explicit (rule-based) rewards** such as answer accuracy, format correctness, or success in performing a web shop task. They are used for training long reasoners and components of agentic systems.
     * **Trainable rewards**. These are used when rule-based scoring is impossible. For example, scoring helpfulness of a dialog or harmlessness of bot's answers requires training a **reward model**. We'll discuss training methodology in the respective section. 
     * **"Intrinsic reward"**, which is actually used to replace RL by SFT. We'll talk about it in the DPO section.
@@ -180,7 +179,11 @@ Some notations:
 * We take a dataset of prompts $\mathcal{D} = \{(x)\}$. Yes, no completions now;
 * We want to maximize the reward $r(x, y)$ of generated $y$ in pursuit of making the LLM give us more rewarding completions:
 $$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}r(x, y)\longrightarrow\max\limits_{\theta}.$$
-  Here, $\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}$ techincally describes the following process:
+  Here,
+
+  $$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}$$
+
+  techincally describes the following process:
 
   1. We sample a batch of prompts from $\mathcal{D}$
   2. For each prompt, we generate a completion $y$ using the current LLM $\pi_{\theta}$ (yes, the one we're training, and it changes during training)
@@ -230,7 +233,7 @@ $$\nabla_{\theta}\mathcal{L} = \nabla_{\theta}\frac1{|D|}\sum_{x\sim\mathcal{D}}
 
 $$=\frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\left[\nabla_{\theta}\pi_{\theta}(y\vert x)r(x, y)\right]$$
 
-Now, to estimate this gradient on a batch of prompts $x#, we need to write this down as
+Now, to estimate this gradient on a batch of prompts $x$, we need to write this down as
 
 $$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}(\text{something}) = \frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y\vert x)\cdot[\text{something}],$$
 
@@ -344,7 +347,11 @@ $$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old
 * $\pi_{\text{old}}$ is the pre-current-epoch policy.
 * $\pi_{\text{init}}$ is the initial, pre-RL policy.
 
-**Note 3**: KL-divergence is outside $\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}$. If we want to drag it inside, we will use the definition of KL-divergence 
+**Note 3**: KL-divergence is outside 
+
+$$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}.$$ 
+
+If we want to drag it inside, we will use the definition of KL-divergence 
 
 $$\mathbb{D}_{\mathrm{KL}}(p||q) = \sum_i p_i\log\frac{p_i}{q_i} = \mathbb{E}_p\log\frac{p}{q}$$ 
 
@@ -366,10 +373,9 @@ $$
 \log\frac{\pi_{\theta}(y\mid x)}{\pi_{\mathrm{init}}(y\mid x)}.
 $$
 
-**Note 4**: The original \href{https://arxiv.org/pdf/2203.02155.pdf}{InstructGPT paper} also suggesting adding one more summand to the objective to directly control performance on the pretraining dataset:
+**Note 4**: The original [InstructGPT paper](https://arxiv.org/pdf/2203.02155.pdf) also suggesting adding one more summand to the objective to directly control performance on the pretraining dataset:
 
 $$
-\[
 \mathcal{L} = 
 \mathbb{E}_{x\sim\mathcal{D}}
 \mathbb{E}_{y\sim\pi_{\mathrm{old}}(y\mid x)}
@@ -379,7 +385,6 @@ $$
   - \beta
     \log\frac{\pi_{\theta}(y\mid x)}{\pi_{\mathrm{init}}(y\mid x)}
 \right]
-\]
 +
 $$
 
@@ -387,7 +392,7 @@ $$+ \gamma\mathbb{E}_{x\sim\mathbb{D}_{\text{pretrain}}}\log\pi_{\theta}(x)$$
 
 ## Step 6. Clipped Surrogate Objective
 
-KL-divergence in not the only possible mechanism to control the drift of $\pi_{\theta}(y|x)$ from initial policy. **Clipped Surrogate Objective** aims to prevent extreme updates during gradient descent instead of imposing global regularization. 
+KL-divergence in not the only possible mechanism to control the drift of $\pi_{\theta}(y\vert x)$ from initial policy. **Clipped Surrogate Objective** aims to prevent extreme updates during gradient descent instead of imposing global regularization. 
 
 The idea is as follows. As we maximize 
 
@@ -414,7 +419,7 @@ r,\ 1 - \varepsilon \leqslant r < 1 + \varepsilon,\\
 1 + \varepsilon,\ r \geqslant 1 + \varepsilon
 \end{cases}$$
 
-So, basically, clipping stops $\frac{\pi_{\theta}(y\vert x)$ from being updated as soon as it goes far enough from the old policy --- also defining a trust region of sorts.
+So, basically, clipping stops $\pi_{\theta}(y\vert x)$ from being updated as soon as it goes far enough from the old policy --- also defining a trust region of sorts.
 
 However, we don't want our objective to become larger than it was before. Indeed, we *maximize* $\mathcal{L}$, and if our manipulations increase it, we're making ourself overly optimistic. So, it's common to take *minimum* between the initial and the clipped loss:
 
@@ -422,7 +427,7 @@ $$
 \mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\min\left[\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y), \text{clip}\left(\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}(x, y)\right] 
 $$
 
-This one is \textbf{Clipped Surrogate Objective}. It can be used with KL regularizer term, but often the KL penalty is omitted.
+This one is **Clipped Surrogate Objective**. It can be used with KL regularizer term, but often the KL penalty is omitted.
 
 ## And that's it!
 
@@ -440,7 +445,7 @@ $$
 \approx \frac{1}{|B|}\sum_{x\in B, y\sim\pi_{old}(y\vert x)}\,\frac1{\text{len}(y)}\sum_{t=1}^{\text{len}(y)}\,\min\left[\dots\right]
 $$
 
-This formula looks more or less the same as its single-turn counterpart, but the actual difference hides inside the advantage function $\widehat{A}_t(x, y_{< t}, y_t)$.
+This formula looks more or less the same as its single-turn counterpart, but the actual difference hides inside the advantage function $\widehat{A}_t$.
 
 In multi-turn setup, it's a more complicated thing. Without going into details, we'll say that
 
