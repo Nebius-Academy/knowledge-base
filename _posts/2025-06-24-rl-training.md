@@ -17,9 +17,9 @@ While Supervised Fine Tuning trains LLMs on pairs $(query, answer)$, explicitly 
 
 2. Training **long reasoners** such as DeepSeek-R1 or Qwen3. Though SFT may also be used to train an LLM to generate long, non-linear reasoning, gathering a high-quality dataset of non-linear solutions for such training is tedious. On the other hand, with RL, you only need the problems and the answers - no solutions at all! It turns out that a well-pre-trained model will emerge as a long reasoner with as little training signal as:
 
-  - Answer supervision - reward for the correct one
+  - Answer supervision - reward for the correct answer
 
-  - Format supervision - reward if the model abides an html format such as <think>...</think> <answer>...</answer>
+  - Format supervision - reward if the model abides an html format such as `<think>...</think>` `<answer>...</answer>`
 
   During training, LLM generates solutions to given problems - and the feedback described above helps the training algorithm to steer an LLM towards giving correct answers and, quite unexpectedly, towards generating long, non-linear solutions.
   
@@ -176,11 +176,11 @@ To start with, we have a certain reward function $r(x, y)$ ($x$ is a prompt and 
 
 Some notations:
 
-* Starting from now, we'll be denoting our LLM by $\pi_{\theta}(y|x)$ and calling it \textbf{policy} to match the traditional RL terminilogy. But don't be afraid: it's just our good old LLM with parameters $\theta$ that predicts completion $y$ given a prompt $x$ or, more generally, probabilities of completions $y$ given $x$.
+* Starting from now, we'll be denoting our LLM by $\pi_{\theta}(y\vert x)$ and calling it \textbf{policy} to match the traditional RL terminilogy. But don't be afraid: it's just our good old LLM with parameters $\theta$ that predicts completion $y$ given a prompt $x$ or, more generally, probabilities of completions $y$ given $x$.
 * We take a dataset of prompts $\mathcal{D} = \{(x)\}$. Yes, no completions now;
 * We want to maximize the reward $r(x, y)$ of generated $y$ in pursuit of making the LLM give us more rewarding completions:
-$$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}r(x, y)\longrightarrow\max\limits_{\theta}.$$
-  Here, $\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}$ techincally describes the following process:
+$$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}r(x, y)\longrightarrow\max\limits_{\theta}.$$
+  Here, $\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}$ techincally describes the following process:
 
   1. We sample a batch of prompts from $\mathcal{D}$
   2. For each prompt, we generate a completion $y$ using the current LLM $\pi_{\theta}$ (yes, the one we're training, and it changes during training)
@@ -189,20 +189,20 @@ $$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}r(x, y)\longrightarrow\ma
  
 ## Step 1. The reward is not the loss
 
-Now, we would love to say that $y = \pi_{\theta}(y|x)$ and we're just maximizing 
-$r(x, \pi_{\theta}(y|x))$, but that's not true. The problem is that $\pi_{\theta}(y|x)$ *is not a function*, because it involves token sampling. The right way of putting it is $y = \pi_{\theta}(y|x)$; this is a stochastic procedure, and we can't just differentiate through it and optimize $r$ with gradient descent.
+Now, we would love to say that $y = \pi_{\theta}(y\vert x)$ and we're just maximizing 
+$r(x, \pi_{\theta}(y\vert x))$, but that's not true. The problem is that $\pi_{\theta}(y\vert x)$ *is not a function*, because it involves token sampling. The right way of putting it is $y = \pi_{\theta}(y\vert x)$; this is a stochastic procedure, and we can't just differentiate through it and optimize $r$ with gradient descent.
 
 We'll be able to overcome this obstacle through math. Let's recall the actual loss function:
 
-$$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}r(x, y)=$$
+$$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}r(x, y)=$$
 
-$$\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}r(x, y)$$
+$$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}r(x, y)$$
 
 At this point it's useful to recall the definition of mathematical expectation, rewriting it as
 
-$$\mathcal{L} = 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)r(x, y)$$
+$$\mathcal{L} = \frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y\vert x)r(x, y)$$
 
-Here, we treat $\pi_{\theta}(y|x)$ as the probability of $y$ given $x$, as predicted by $\pi_{\theta}$.
+Here, we treat $\pi_{\theta}(y\vert x)$ as the probability of $y$ given $x$, as predicted by $\pi_{\theta}$.
 
 ## Step 2. Policy gradient
 
@@ -212,7 +212,7 @@ We'll start by recalling how this works for usual loss functions, and then we'll
 
 $$\mathcal{G} = \mathbb{E}_{z\in Z}G(h_{\phi}(z)) = \frac{1}{|Z|}\sum_{z\in Z}G(h_{\phi}(z))$$
 
-(Here, $\frac{1}{|Z|}\sum$ might become $\int$ if we assume that the dataset is infinite.)
+(Here, $\frac{1}{\vert Z\vert}\sum$ might become $\int$ if we assume that the dataset is infinite.)
 
 The gradient is
 
@@ -226,32 +226,32 @@ which gives us exactly the familiar stochastic gradient descent.
 
 Now, let's find the derivative of $\nabla_{\theta}\mathcal{L}$:
 
-$$\nabla_{\theta}\mathcal{L} = \nabla_{\theta}1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)r(x, y) = $$
+$$\nabla_{\theta}\mathcal{L} = \nabla_{\theta}\frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y\vert x)r(x, y) = $$
 
-$$=1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\left[\nabla_{\theta}\pi_{\theta}(y|x)r(x, y)\right]$$
+$$=\frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\left[\nabla_{\theta}\pi_{\theta}(y\vert x)r(x, y)\right]$$
 
 Now, to estimate this gradient on a batch of prompts $x#, we need to write this down as
 
-$$\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}(\text{something}) = 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)\cdot[\text{something}],$$
+$$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}(\text{something}) = \frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y\vert x)\cdot[\text{something}],$$
 
 But how?! 
 
 Well, let's do a very naive transformation:
 
-$$1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\nabla_{\theta}\pi_{\theta}(y|x)r(x, y) = $$
+$$\frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\nabla_{\theta}\pi_{\theta}(y\vert x)r(x, y) = $$
 
-$$= 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)\cdot \frac{\nabla_{\theta}\pi_{\theta}(y|x)}{\nabla_{\theta}\pi_{\theta}(y|x)}r(x, y)$$
+$$= \frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\nabla_{\theta}\pi_{\theta}(y\vert x)\cdot \frac{\pi_{\theta}(y\vert x)}{\pi_{\theta}(y\vert x)}r(x, y)$$
 
-Luckily, $\frac{\nabla_{\theta}\pi}{\pi} = \nabla_{\theta}\log{\pi}$, so we can rewrite this as:
+Luckily, $\frac{\nabla_{\theta}\pi}(\pi) = \nabla_{\theta}\log{\pi}$, so we can rewrite this as:
 
-$$= 1\frac{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y|x)\cdot \nabla_{\theta}\log\pi_{\theta}(y|x)r(x, y) = 
-\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y)$$
+$$= \frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y\vert x)\cdot \nabla_{\theta}\log\pi_{\theta}(y\vert x)r(x, y) = 
+\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)r(x, y)$$
 
 Now, given a batch of prompts $B$, we can estimate the gragient as
 
-$$1\frac{|D|}\sum_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}\,\nabla_{\theta}\log\pi_{\theta}(y|x)r(x, y)$$
+$$\frac1{|D|}\sum_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}\,\nabla_{\theta}\log\pi_{\theta}(y\vert x)r(x, y)$$
 
-Note that we actually estimated the internal mathematical expectation $\mathbb{E}_{y\sim\pi_{\theta}(y|x)}$ with just one point. This makes the estimate not very accurate, but at least theoretically unbiased.
+Note that we actually estimated the internal mathematical expectation $\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}$ with just one point. This makes the estimate not very accurate, but at least theoretically unbiased.
 
 ## Step 3. Advantage
 
@@ -259,24 +259,24 @@ Though the gradient estimate we've produced is unbiased, it is still very noisy,
 
 $$\widehat{A}(x, y) = r(x, y) - \widehat{V}_{\phi}(x),$$
 
-where $\widehat{V}_{\phi}(x)$ is an estimate of the average reward of $r(x, y)$, trained alongside $\pi_{\theta}$ as a separate "value head" with the loss
+where $\widehat{V}_{\phi}(x)$ is an estimate of the average reward of $r(x, y)$, trained alongside the policy as a separate LLM's "value head" with the loss
 
-$$\frac1{|B|}\sum{x\in B, y\sim\pi_{\theta}(y|x)}\left(\widehat{V}_{\phi}(x) - r(x, y)\right)$$
+$$\frac1{|B|}\sum{x\in B, y\sim\pi_{\theta}(y\vert x)}\left(\widehat{V}_{\phi}(x) - r(x, y)\right)$$
 
 The cool fact about advantage is that
 
-$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)\widehat{A}(x, y) =$$
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)\widehat{A}(x, y) =$$
 
-$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 
-\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)\widehat{V}(x) = $$
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)r(x, y) - 
+\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)\widehat{V}(x) = $$
 
-$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 
-\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\widehat{V}(x)\underbrace{\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)}_{=1} = $$
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)r(x, y) - 
+\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\widehat{V}(x)\underbrace{\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)}_{=1} = $$
 
-$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 
-\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\widehat{V}(x)\underbrace{\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)}_{=1} = $$
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)r(x, y) - 
+\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\widehat{V}(x)\underbrace{\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)}_{=1} = $$
 
-$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\log\pi_{\theta}(y|x)r(x, y) - 0$$
+$$\nabla_{\theta}\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)r(x, y) - 0$$
 
 That is, replacing $r(x, y)$ by $\widehat{A}(x, y)$ doesn't change the gradient of the loss. At the same time, it can be proved that it decreases the gradient's variance. (Actually, $\widehat{V}_{\phi}(x)$ is, in a sense, the "optimal" thing we can subtract from $r(x,y)$ in order to reduce the gradient's variance.) We'll omit the mathematical proof here, highlighting instead the common sense behind the advantage function. 
 
@@ -289,12 +289,14 @@ Imagine that we're solving the alignment problem with RL. Imagine also that at s
 
 The loss 
 
-$$\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{y\sim\pi_{\theta}(y|x)}\widehat{A}(x, y) \approx 
-\frac1{|B|}\sum_{y}\pi_{\theta}(y|x)\widehat{A}(x, y)$$
+$$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\widehat{A}(x, y) \approx 
+\frac1{|B|}\sum_{y}\pi_{\theta}(y\vert x)\widehat{A}(x, y)$$
 
-is the function of the policy $\pi_{\theta}(y|x)$. Roughly putting, the loss tells us which policies $\pi_{\theta}(y|x)$ are better and which is worse. But the thing is --- the completions $y$ are generated not from this variable policy $\pi_{\theta}(y|x)$, but from the very concrete and fixed policy --- let's call it $\pi_{\text{old}}(y|x)$. This makes the whole formula wrong; the right one should be
+is the function of the policy $\pi_{\theta}(y\vert x)$. Roughly putting, the loss tells us which policies $\pi_{\theta}(y\vert x)$ are better and which is worse. But the thing is --- the completions $y$ are generated not from this variable policy $\pi_{\theta}(y\vert x)$, but from the very concrete and fixed policy --- let's call it $\pi_{\text{old}}(y\vert x)$. This makes the whole formula wrong; the right one should be
 
-$$\mathbb{E}_{x\sim\mathcal{D}}\mathbb{E}_{\mathbf{y\sim\pi_{old}(y|x)}}[\text{something}]$$
+$$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}[\text{something}]$$
+
+But how can we change $\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}$ into $\mathbb{E}_{y\sim\pi_{\text{old}}(y\vert x)}$?
 
 
 ## Step 4. KL regularization
