@@ -325,6 +325,7 @@ To counter reward hacking, it's good to prevent the LLM from drifting too far aw
 The idea of the **TRPO** (**Trust Region Policy Optimization**) approach is to directly ensure that the predicted token probability distribution $\pi_{\theta}(y\vert x)$ doesn't get far from its intial state $\pi_{\text{init}}$.
 
 The most common tool for measuring distance between distributions is **KL-divergence**. So, the regularized version of the training objective is:
+
 $$
 \begin{cases}
 \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y)\longrightarrow\max\\
@@ -343,19 +344,50 @@ $$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old
 * $\pi_{\text{old}}$ is the pre-current-epoch policy.
 * $\pi_{\text{init}}$ is the initial, pre-RL policy.
 
-**Note 3**: KL-divergence is outside $\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}$. If we want to drag it inside, we will use the definition of KL-divergence $\mathbb{D}_{\mathrm{KL}}(p||q) = \sum_i p_i\log\frac{p_i}{q_i} = \mathbb{E}_p\log\frac{p}{q}$ and write instead
-$$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y|x)||\pi_{\text{init}}(y|x)\right] - \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\text{init}}(y|x)}\right]$$
+**Note 3**: KL-divergence is outside $\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}$. If we want to drag it inside, we will use the definition of KL-divergence 
+
+$$\mathbb{D}_{\mathrm{KL}}(p||q) = \sum_i p_i\log\frac{p_i}{q_i} = \mathbb{E}_p\log\frac{p}{q}$$ 
+
+and write instead
+
+$$
+\mathcal{L} = 
+\mathbb{E}_{x\sim\mathcal{D}}\,
+\mathbb{E}_{y\sim\pi_{\text{old}}(y\mid x)}
+\left[
+  \frac{\pi_{\theta}(y\mid x)}{\pi_{\mathrm{old}}(y\mid x)}
+  \,\widehat{A}(x, y)
+\right]
+\;-\;
+\beta\,
+\mathbb{D}_{\mathrm{KL}}\!\bigl[\pi_{\theta}(y\mid x)\,\big\|\,\pi_{\mathrm{init}}(y\mid x)\bigr]
+\;-\;
+\beta\,
+\log\frac{\pi_{\theta}(y\mid x)}{\pi_{\mathrm{init}}(y\mid x)}.
+$$
 
 **Note 4**: The original \href{https://arxiv.org/pdf/2203.02155.pdf}{InstructGPT paper} also suggesting adding one more summand to the objective to directly control performance on the pretraining dataset:
 
 $$
-\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\text{init}}(y|x)}\right] + $$
+\[
+\mathcal{L} = 
+\mathbb{E}_{x\sim\mathcal{D}}
+\mathbb{E}_{y\sim\pi_{\mathrm{old}}(y\mid x)}
+\left[
+  \frac{\pi_{\theta}(y\mid x)}{\pi_{\mathrm{old}}(y\mid x)}
+  \,\widehat{A}(x, y)
+  - \beta
+    \log\frac{\pi_{\theta}(y\mid x)}{\pi_{\mathrm{init}}(y\mid x)}
+\right]
+\]
++
+$$
 
 $$+ \gamma\mathbb{E}_{x\sim\mathbb{D}_{\text{pretrain}}}\log\pi_{\theta}(x)$$
 
 ## Step 6. Clipped Surrogate Objective
 
-KL-divergence in not the only possible mechanism to control the drift of $\pi_{\theta}(y|x)$ from $\pi_{\text{init}}(y|x)$. **Clipped Surrogate Objective** aims to prevent extreme updates during gradient descent instead of imposing global regularization. 
+KL-divergence in not the only possible mechanism to control the drift of $\pi_{\theta}(y|x)$ from initial policy. **Clipped Surrogate Objective** aims to prevent extreme updates during gradient descent instead of imposing global regularization. 
 
 The idea is as follows. As we maximize 
 
@@ -372,14 +404,14 @@ To prevent this from happening, let's discourage $\pi_{\theta}(y\vert x)$ from g
 
 $$\frac1{|B|}\sum_{x\in B, y\sim\pi_{\theta}(y\vert x)}\,\text{clip}\left(\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}(x, y),$$
 
-Here, $\varepsion$ is a hyperparameter, which can typically be 0.2.
+Here, $\varepsilon$ is a hyperparameter, which can typically be 0.2.
 
 **A reminder**. Clipping does the following:
 
-$$\text{clip}(r, 1 - \varepsion, 1 + \varepsilon) = \begin{cases}
-1 - \varepsilon,\ r < 1 - \varepsion,\\
-r,\ 1 - \varepsion \leqslant r < 1 + \varepsion,\\
-1 + \varepsion,\ r \geqslant 1 + \varepsion
+$$\text{clip}(r, 1 - \varepsilon, 1 + \varepsilon) = \begin{cases}
+1 - \varepsilon,\ r < 1 - \varepsilon,\\
+r,\ 1 - \varepsilon \leqslant r < 1 + \varepsilon,\\
+1 + \varepsilon,\ r \geqslant 1 + \varepsilon
 \end{cases}$$
 
 So, basically, clipping stops $\frac{\pi_{\theta}(y\vert x)$ from being updated as soon as it goes far enough from the old policy --- also defining a trust region of sorts.
@@ -399,12 +431,13 @@ Indeed, the loss we've written above is the most common formulation of PPO for a
 ## Per-token objective
 
 So far, we considered an RL setup where the agent (an LLM) produces the whole completion as a single action - and is rewarded only for its final result. However, in many cases *per-token* setup is considered, where an action is generation of a single token. In this case, the reward is calculated for every prefix $y_{\leqslant t}$ of a completion $y$, and the objective features another sum - over $t$:
+
 $$
 \mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y_{\leqslant t}\sim\pi_{old}(y\vert x)}}\min\left[\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}\widehat{A}_t(x, y_{< t}, y_t), \text{clip}\left(\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_t(x, y_{< t}, y_t)\right] \approx
 $$
 
 $$
-\approx \frac{1}{|B|}\sum_{x\in B, y\sim\pi_{old}(y\vert x)}\,\frac1{\text{len}(y)}\sum_{t=1}^{\text{len}(y)}\,\min\left[\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}\widehat{A}_t(x, y_{< t}, y_t), \text{clip}\left(\frac{\pi_{\theta}(y_t\vert x, y_{<t})}{\pi_{\text{old}}(y_t\vert x, y_{<t})}, 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_t(x, y_{< t}, y_t)\right]
+\approx \frac{1}{|B|}\sum_{x\in B, y\sim\pi_{old}(y\vert x)}\,\frac1{\text{len}(y)}\sum_{t=1}^{\text{len}(y)}\,\min\left[\dots\right]
 $$
 
 This formula looks more or less the same as its single-turn counterpart, but the actual difference hides inside the advantage function $\widehat{A}_t(x, y_{< t}, y_t)$.
@@ -418,7 +451,12 @@ where
 * $V_t(x, y_{< t}, y_t)$ is smth like the expected cumulative reward we can get, if we start with $x, y_{< t}$ and generate further tokens with $\pi_{\theta}$. As before, it is predicted by a trained **value head**.
 * $Q_t(x, y_{< t}, y_t)$ is smth like the expected cumulative reward we can get, if we start with $x, y_{< t}$, *then choose $y_t$ as the next token* and, after that, generate further tokens with $\pi_{\theta}$. There are different ways of calculating it. Probably the most popular is the **1-step** lookahead
 
-  $$Q_t(x, y_{< t}, y_t) \approx r(x, y_{\leqslant t}, y_t) ​+ \gamma V_{t+1}(x, y_{\leqslant t}, y_{t+1)),$$
+$$Q_t\bigl(x,\;y_{<t},\;y_t\bigr)
+\;\approx\;
+r\bigl(x,\;y_{\leqslant t}\bigr)
+\;+\;
+\gamma\,
+V_{t+1}\bigl(x,\;y_{\leqslant t+1}\bigr).,$$
 
   where $0 < \gamma < 1$ is a hyperparameter.
 
@@ -428,7 +466,7 @@ $$\widehat{A}^{\text{GAE}}_t(x, y_{< t}, y_t) = \sum_{l=0}^{\infty}(\gamma\lambd
 
 where $0 < \lambda < 1$ is yet another hyperparameter and
 
-$$\delta_l = r(x, y_{\leqslant t}, y_t) ​+ \gamma V_{t+1}(x, y_{\leqslant t}, y_{t+1)) - V_t(x, y_{< t}, y_t)$$
+$$\delta_l = r(x, y_{\leqslant l}) ​+ \gamma V_{l+1}(x, y_{\leqslant l}, y_{l+1}) - V_l(x, y_{<l}, y_l)$$
 
 This was sketchy, of course. If you want to truly understand these formulas, please consider taking a full RL course.
 
