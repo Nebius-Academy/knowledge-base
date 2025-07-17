@@ -296,7 +296,65 @@ is the function of the policy $\pi_{\theta}(y\vert x)$. Roughly putting, the los
 
 $$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}[\text{something}]$$
 
-But how can we change $\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}$ into $\mathbb{E}_{y\sim\pi_{\text{old}}(y\vert x)}$?
+But how can we change 
+
+$$\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}$$ 
+
+into 
+
+$$\mathbb{E}_{y\sim\pi_{\text{old}}(y\vert x)}?$$
+
+Luckily, this can be done through a trick otherwise known as **importance sampling**:
+
+$$\frac1{|B|}\sum_{y}\pi_{\theta}(y\vert x)\widehat{A}(x, y) = \frac1{|B|}\sum_{y}\pi_{\theta}(y\vert x)\cdot\mathbf{\frac{\pi_{old}(y\vert x)}{\pi_{old}(y\vert x)}}\cdot\widehat{A}(x, y) =$$
+
+$$= \frac1{|B|}\sum_{y}\pi_{\text{old}}(y\vert x)\cdot\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) =$$
+
+$$\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) =: \mathcal{L}$$
+
+## Step 5. Reward hacking and KL regularization
+
+If you get too carried away with maximizing reward (human preferences), you can ruin the quality. An absurd, but illustrative example: a model that politely refuses to answer any question is perfectly non-toxic, although completely useless. Situations, when the model learns to increase reward at all costs, eventually harming the actual goal behind the reward, are known as **reward hacking**. 
+
+To counter reward hacking, it's good to prevent the LLM from drifting too far away during RL training. There are several ways of establishing this; the most popular are *KL penalty* and *clipped objective*. We'll start with the first one.
+
+The idea of the **TRPO** (**Trust Region Policy Optimization**) approach is to directly ensure that the predicted token probability distribution $\pi_{\theta}(y\vert x)$ doesn't get far from its intial state $\pi_{\text{init}}$.
+
+The most common tool for measuring distance between distributions is **KL-divergence**. So, the regularized version of the training objective is:
+$$
+\begin{cases}
+\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y)\longrightarrow\max\\
+\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y|x)||\pi_{\text{init}}(y|x)\right]\leqslant\delta
+\end{cases}
+$$
+
+This task can be solved directly with a variety of constrained optimization methods. However in practice just a regularized objective is used:
+
+$$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y|x)||\pi_{\text{init}}(y|x)\right]$$
+
+**Note 1**: This objective is being *maximized*. So, the KL summand here is *minimized*.
+
+**Note 2**: KL-divergence is outside $\mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}$. If we want to drag it inside, we will use the definition of KL-divergence $\mathbb{D}_{\mathrm{KL}}(p||q) = \sum_i p_i\log\frac{p_i}{q_i} = \mathbb{E}_p\log\frac{p}{q}$ and write instead
+$$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y|x)||\pi_{\text{init}}(y|x)\right] - \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\text{init}}(y|x)}\right]$$
+
+**Note 3**: The original \href{https://arxiv.org/pdf/2203.02155.pdf}{InstructGPT paper} also suggesting adding one more summand to the objective to directly control performance on the pretraining dataset:
+
+$$
+\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y|x)||\pi_{\text{init}}(y|x)\right] - \beta\log\frac{\pi_{\theta}(y|x)}{\pi_{\text{init}}(y|x)}\right] + $$
+
+$$+ \gamma\mathbb{E}_{x\sim\mathbb{D}_{\text{pretrain}}}\log\pi_{\theta}(x)$$
+
+## Step 6. Clipped Surrogate Objective
+
+\item KL-divergence in not the only possible mechanism to control the drift of $\pi_{\theta}(y|x)$ from $\pi_{\mathrm{SFT}}(y|x)$. Another one is \textbf{Clipped Surrogate Objective}. The corresponding loss looks like this:
+\begin{align*}
+\mathcal{L}_{\mathrm{RLHF-clip}} = &\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y|x)}\min\left[\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}r(x, y); \mathrm{clip}\left(\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}, 1 - \epsilon, 1 + \epsilon\right)r(x, y) \right],
+\end{align*}
+
+The ratio $\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}$ comes from the original PPO where it plays the role of importance sampling. Clipping allows to avoid extreme values of $\frac{\pi_{\theta}(y|x)}{\pi_{\mathrm{SFT}}(y|x)}$ and, as a consequence, extreme changes of the policy.
 
 
-## Step 4. KL regularization
+
+
+
+
