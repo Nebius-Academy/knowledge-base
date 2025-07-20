@@ -581,7 +581,7 @@ $$
 Now, $Z(x)$ doesn't depend on $\theta$, so it has no effect on optimization, so
 
 $$
-\max\limits_{\theta}\mathcal{L}_{\אקסא{RLHF}} &=\min\limits_{\theta}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
+\max\limits_{\theta}\mathcal{L}_{\text{RLHF}} =\min\limits_{\theta}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
 (y \vert x)}\frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)
 $$
 
@@ -599,10 +599,10 @@ From this we can write the DPO loss function. It will differ depending on a rank
 
 $$p(y_a\succ y_r|x) = \sigma(r(x, y_a) - r(x, y_r))$$
 
-Now, let's recall that we want to train the LLM to favor $y_a | x$ over $y_r | x$ for all $(x, y_a, y_r)\in\mathcal{D}$. That is, to maximise all $p(y_a\succ y_r|x)$. So, the loss that we need is:
+Now, let's recall that we want to train the LLM to favor $y_a \vert x$ over $y_r \vert x$ for all $(x, y_a, y_r)\in\mathcal{D}$. That is, to maximise all $p(y_a\succ y_r\vert x)$. So, the loss that we need is:
 
 $$
-\mathcal{L}_{\אקסא{DPO}} &= \mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}p_{\theta}(y_a\succ y_r|x)
+\mathcal{L}_{\text{DPO}} = \mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}p_{\theta}(y_a\succ y_r|x)
 $$
 
 where
