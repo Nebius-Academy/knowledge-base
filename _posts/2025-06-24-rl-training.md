@@ -325,27 +325,27 @@ If you get too carried away with maximizing reward (human preferences), you can 
 
 To counter reward hacking, it's good to prevent the LLM from drifting too far away during RL training. There are several ways of establishing this; the most popular are *KL penalty* and *clipped objective*. We'll start with the first one.
 
-The idea of the **TRPO** (**Trust Region Policy Optimization**) approach is to directly ensure that the predicted token probability distribution $\pi_{\theta}(y\vert x)$ doesn't get far from its intial state $\pi_{\text{init}}$.
+The idea of the **TRPO** (**Trust Region Policy Optimization**) approach is to directly ensure that the predicted token probability distribution $\pi_{\theta}(y\vert x)$ doesn't get far from its intial state $\pi_{\text{ref}}$ (**reference policy**).
 
 The most common tool for measuring distance between distributions is **KL-divergence**. So, the regularized version of the training objective is:
 
 $$
 \begin{cases}
 \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y)\longrightarrow\max\\
-\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y \vert x)||\pi_{\text{init}}(y \vert x)\right]\leqslant\delta
+\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y \vert x)||\pi_{\text{ref}}(y \vert x)\right]\leqslant\delta
 \end{cases}
 $$
 
 This task can be solved directly with a variety of constrained optimization methods. However in practice just a regularized objective is used:
 
-$$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y \vert x)||\pi_{\text{init}}(y \vert x)\right]$$
+$$\mathcal{L} = \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{\mathbf{y\sim\pi_{old}(y\vert x)}}\frac{\pi_{\theta}(y\vert x)}{\pi_{\text{old}}(y\vert x)}\widehat{A}(x, y) - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y \vert x)||\pi_{\text{ref}}(y \vert x)\right]$$
 
 **Note 1**: This objective is being *maximized*. So, the KL summand here is *minimized*.
 
-**Note 2**: Having both $\pi_{\text{old}}$ and $\pi_{\text{init}}$ in one formula might be confusing, but it's two different policy snapshots:
+**Note 2**: Having both $\pi_{\text{old}}$ and $\pi_{\text{ref}}$ in one formula might be confusing, but it's two different policy snapshots:
 
 * $\pi_{\text{old}}$ is the pre-current-epoch policy.
-* $\pi_{\text{init}}$ is the initial, pre-RL policy.
+* $\pi_{\text{ref}}$ is the initial, pre-RL policy.
 
 **Note 3**: KL-divergence is outside 
 
@@ -490,7 +490,7 @@ This was sketchy, of course. If you want to truly understand these formulas, ple
 4.  The authors of DeepSeek-R1 suggested to use both \textbf{Clipped surrogate objective} and KL-regulatization:
 
   $$\mathcal{L}(q) = \frac1G\sum_{i=1}^G\left[\min\left(\frac{\pi_{\theta}(o_i\mid q)}{\pi_{\mathrm{old}}(o_i\mid q)}\widehat{A}_{i},
-\mathrm{clip}\left(\frac{\pi_{\theta}(o_i\mid q)}{\pi_{\mathrm{old}}(o_i\mid q)}; 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_{i}\right) - \beta\mathbb{D}_{\mathrm{KL}}(\pi_{\theta}\|\pi_{\text{init}})\right]$$
+\mathrm{clip}\left(\frac{\pi_{\theta}(o_i\mid q)}{\pi_{\mathrm{old}}(o_i\mid q)}; 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_{i}\right) - \beta\mathbb{D}_{\mathrm{KL}}(\pi_{\theta}\|\pi_{\text{ref}})\right]$$
 
 7. The final loss is
 
@@ -507,7 +507,7 @@ As GRPO gained popularity, its efficiency came under scrutiny, leading to a numb
 First of all, let's write down the per-token GRPO loss:
 
   $$\mathcal{L}(q) = \frac1G\sum_{i=1}^G\frac1{|o_i|}\sum_{t=1}^{|o_i|}\left[\min\left(\frac{\pi_{\theta}(o_{i,t}\mid q,o_{i,< t})}{\pi_{\mathrm{old}}(o_{i,t}\mid q,o_{i,< t})}\widehat{A}_{i, t},
-\mathrm{clip}\left(\frac{\pi_{\theta}(o_{i,t}\mid q,o_{i,< t})}{\pi_{\mathrm{old}}(o_{i,t}\mid q,o_{i,< t})}; 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_{i, t}\right) - \beta\mathbb{D}_{\mathrm{KL}}(\pi_{\theta}\|\pi_{\text{init}})\right],$$
+\mathrm{clip}\left(\frac{\pi_{\theta}(o_{i,t}\mid q,o_{i,< t})}{\pi_{\mathrm{old}}(o_{i,t}\mid q,o_{i,< t})}; 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_{i, t}\right) - \beta\mathbb{D}_{\mathrm{KL}}(\pi_{\theta}\|\pi_{\text{ref}})\right],$$
 
 where $r_{i, t} = r(q, o_{i, \leqslant t})$ and
 
@@ -549,11 +549,11 @@ One of the most successful options so far is **Direct preference optimization** 
 The authors showed that maximum of the RLHF loss can be found analytically, at least of the following version of it (no clipping, no importance sampling, no advantages, but with the KL penalty):
 
 $$
-\mathcal{L}_{\text{RLHF}} = \mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y \vert x)}\left[r(x, y) - \beta\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\text{init}}(y \vert x)}\right]
+\mathcal{L}_{\text{RLHF}} = \mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y \vert x)}\left[r(x, y) - \beta\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\text{ref}}(y \vert x)}\right]
 $$
 
 $$
-=-\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y \vert x)}\left[\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\text{init}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)}\right]\\
+=-\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y \vert x)}\left[\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)}\right]\\
 $$
 
 The expression 
@@ -566,34 +566,35 @@ $$-\mathbb{D}_{\mathrm{KL}}(\pi_{\theta}(y \vert x)||\text{something}).$$
 
 If it were so, its maximum, i.e. the minimum of KL-divergence would be when **something** coincides with $\pi_{\theta}(y\vert x)$.
 
-The only problem is that $\pi_{\text{init}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)$ is not guaranteed to be a probabilistic distribution. That is, it probably doesn't sum to $1$. Let's denote
+The only problem is that $\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)$ is not guaranteed to be a probabilistic distribution. That is, it probably doesn't sum to $1$. Let's denote
 
-$$Z(x) = \sum_y\pi_{\mathrm{SFT}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)$$
+$$Z(x) = \sum_y\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)$$
 
-$$\pi^*(y \vert x) = \frac1{Z(x)}\pi_{\mathrm{SFT}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)$$
+$$\pi^*(y \vert x) = \frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)$$
 
 and rewrite
 
 $$
 \mathcal{L}_{\mathrm{RLHF}} &=\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
-(y \vert x)}\left[\log{Z}(x) - \log\frac{\pi_{\theta}(y \vert x)}{\frac1{Z(x)}\pi_{\text{init}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)}\right]
+(y \vert x)}\left[\log{Z}(x) - \log\frac{\pi_{\theta}(y \vert x)}{\frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)}\right]
 $$
 
 Now, $Z(x)$ doesn't depend on $\theta$, so it has no effect on optimization, so
 
 \begin{align*}
 \max\limits_{\theta}\mathcal{L}_{\mathrm{RLHF}} &=\min\limits_{\theta}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
-(y \vert x)}\frac1{Z(x)}\pi_{\mathrm{SFT}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)
+(y \vert x)}\frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)
 \end{align*}
 
 and it is 
 
-$$\pi_{\theta}(y \vert x) = \pi^*(y \vert x) = \frac1{Z(x)}\pi_{\mathrm{SFT}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right).$$
+$$\pi_{\theta}(y \vert x) = \pi^*(y \vert x) = \frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right).$$
 
-\subsection{Intrinsic reward model and the DPO loss}
+## Intrinsic reward model and the DPO loss
 
 Above we've expressed the optimal policy in terms of reward model. Now let's do the other way around:
-$$r(x, y) = \beta\log\frac{\pi^*(y \vert x)}{\pi_{\mathrm{SFT}}(y \vert x)} + \beta\log{Z(x)}$$
+
+$$r(x, y) = \beta\log\frac{\pi^*(y \vert x)}{\pi_{\text{ref}}(y \vert x)} + \beta\log{Z(x)}$$
 
 From this we can write the DPO loss function. It will differ depending on a ranking model we use. We know only Bradley-Terry model, so we'll cling to it:
 
@@ -604,116 +605,51 @@ Now, let's recall that we want to train the LLM to favor $y_a | x$ over $y_r | x
 \mathcal{L}_{\mathrm{DPO}} &= \mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}p_{\theta}(y_a\succ y_r|x)
 \end{align*}
 where
-\begin{align*}
-p_{\theta}(y_a\succ y_r|x)&= \sigma\left(\left[\beta\log\frac{\pi_{\theta}(y_a|x)}{\pi_{\mathrm{SFT}}(y_a|x)} + \beta\log{Z(x)}\right] -
-\left[\beta\log\frac{\pi^*(y_r|x)}{\pi_{\mathrm{SFT}}(y_r|x)} + \beta\log{Z(x)}\right]\right)\\
-&=\sigma\left(\beta\log\frac{\pi_{\theta}(y_a|x)}{\pi_{\mathrm{SFT}}(y_a|x)} - \beta\log\frac{\pi_{\theta}(y_r|x)}{\pi_{\mathrm{SFT}}(y_r|x)}\right)
-\end{align*}
-A nice thing: $Z(x)$ gets canceled!
 
-\bigskip
+$$
+p_{\theta}(y_a\succ y_r|x)= \sigma\left(\left[\beta\log\frac{\pi_{\theta}(y_a|x)}{\pi_{\text{ref}}(y_a|x)} + \beta\log{Z(x)}\right] -
+\left[\beta\log\frac{\pi^*(y_r|x)}{\pi_{\text{ref}}(y_r|x)} + \beta\log{Z(x)}\right]\right)$$
+
+$$=\sigma\left(\beta\log\frac{\pi_{\theta}(y_a|x)}{\pi_{\text{ref}}(y_a|x)} - \beta\log\frac{\pi_{\theta}(y_r|x)}{\pi_{\text{ref}}(y_r|x)}\right)
+$$
+
+A nice thing: $Z(x)$ gets canceled!
 
 Note that we don't need RL for this. Optimizing $\mathcal{L}_{\mathrm{DPO}}$ is just fine tuning.
 
-\bigskip
 
-\textbf{Note}. Other, more complicated DPO objectives have also been suggested. You can, for example, add KL-divergence as a regularizer. If you want to see more, you can check the links  \href{https://huggingface.co/docs/trl/main/en/dpo_trainer#Loss}{here}.
+**Note**. Other, more complicated DPO objectives have also been suggested. You can, for example, add KL-divergence as a regularizer. If you want to see more, you can check the links [here](https://huggingface.co/docs/trl/main/en/dpo_trainer#Loss)
 
-\subsection{Gradient update analysis}
+## Gradient update analysis
 
 The DPO paper suggests nice analysis of the DPO objective gradient:
 
-\begin{align*}
-&\nabla\mathcal{L}_{\mathrm{DPO}} = \\
-&= -\beta\mathbb{E}\left[
+$$
+\nabla\mathcal{L}_{\mathrm{DPO}} = $$
+
+$$= -\beta\mathbb{E}\left[
 \underbrace{\sigma(\widehat{r}_{\theta}(x, y_a) - \widehat{r}_{\theta}(x, y_r))}_{
 \begin{smallmatrix}
-\mbox{higher weight}\\
-\mbox{when reward estimate}\\
-\mbox{is wrong}\\
+\text{higher weight}\\
+\text{when reward estimate}\\
+\text{is wrong}\\
 \end{smallmatrix}
 }
 \left[
 \underbrace{\nabla_{\theta}\log\pi_{\theta}(y_a|x)}_{
-\uparrow\mbox{ likelihood of }y_a
+\uparrow\text{ likelihood of }y_a
 }
 -\underbrace{\nabla_{\theta}\log\pi_{\theta}(y_r|x)}_{
-\downarrow\mbox{ likelihood of }y_a
+\downarrow\text{ likelihood of }y_a
 }
 \right]
 \right],
-\end{align*}
-where $\widehat{r}_{\theta}(x, y) = \beta\frac{\pi_{\theta(y \vert x)}}{\pi_{\theta}(y \vert x)}$ is also a surrogate reward function of sorts.
+$$
 
-\newpage
-\section{Self-play}
-\label{sec:self-play}
+where 
 
-RL-based strategies can also be used to improve the results of Supervised Fine Tuning (SFT) without collecting new data.
+$$\widehat{r}_{\theta}(x, y) = \beta\frac{\pi_{\theta(y \vert x)}}{\pi_{\theta}(y \vert x)}$$ 
 
-The authors of the \href{https://arxiv.org/pdf/2401.01335.pdf}{SPIN (Self-Play Fine-Tuning)} paper took zephyr-7b-sft-full, a fine-tuned LLM based on Mistral-7B, and proved that:
-
-\begin{itemize}
-\item If we try to fine tune the LLM further on its own SFT dataset, we don’t improve it much and can even diminish the evaluation scores.
-\item Still, LLM’s completions underperform in comparison to the ground truth completions from the dataset, so it seems that we could probably squeeze some more information from this data.
-\end{itemize}
-
-The algorithm SPIN that they suggest resembles a GAN and involves alternating training of two ``players''. On each step $t$:
-\begin{enumerate}
-\item The first player is the function $f_t$ (which is represented by a neural network, of course) which tries to determine whether a completion $y$ of a prompt $x$ is natural or generated. So, $f_t$ could maximise the following objective:
-$$f_{t} = \mathrm{argmax}_{f\in\mathcal{F}_t}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\mathrm{true}}(y \vert x), y'\sim\pi_{\theta_{t-1}}(y'|x)}(f(x, y) - f(x, y'))$$
-In human language it means that $x$ is a prompt taken from STF data, $y$ is its actual completion and $y'$ is its completion generated by the model from the $(t-1)$-th step of SPIN. The function $f(x, y)$ plays the role of ``confidence'' that $(x, y)$ is a natural prompt+completion pair, and the loss says: ``a truly natural completion should receive greater confidence than a generated completion''.
-
-However, this maximization task is not good: values of $f$ are not bounded and optimization can eventually lead to $f(x, y')\rightarrow-\infty$. So, it can be beneficial to consider instead the objective
-$$f_{t} = \mathrm{argmin}_{f\in\mathcal{F}_t}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\mathrm{true}}(y \vert x), y'\sim\pi_{\theta_{t-1}}(y'|x)}\ell(f(x, y) - f(x, y')),$$
-where $\ell$ is monotonically \textbf{decreasing} (note the $\mathrm{arg}\mathbf{min}$!) and smooth. The authors suggest taking the logistic loss function $\ell(t) = \log(1 + \exp(-t))$.
-
-This objective is minimized inside a function class $\mathcal{F}_t$ which we are free to choose. We'll use this freedom soon to find a neat formula for $f_{t}$.
-
-\item The second player is the LLM $\pi_{\theta_{t}}(y \vert x)$ itself which tries to ``fool'' $f_t$ by maximizing the familiar RLHF objective:
-$$\mathcal{L}_t = \mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y \vert x)}\left[f_t(x, y)\right] - \beta\mathbb{D}_{\mathrm{KL}}\left[\pi_{\theta}(y \vert x)||\pi_{\mathrm{SFT}}(y \vert x)\right]$$
-\end{enumerate}
-
-Now, let's understand in what class $\mathcal{F}_t$ should we search for $f_t$. You probably remember that $\mathcal{L}_t$ is minimized by
-$$\pi^*(y \vert x) = \frac1{Z(x)}\pi_{\mathrm{SFT}}(y \vert x)\exp\left(\frac1{\beta}f_t(x, y)\right).$$
-For an arbitrary $f_t$ we can't guarantee that there is a set of weights $\theta$ such that $\pi_{\theta}(y \vert x) = \pi^*(y \vert x)$. So, let's choose $\mathcal{F}_t$ in a way that such $\theta$ exists!
-
-Solving
-$$\pi_{\theta}(y \vert x) = \frac1{Z(x)}\pi_{\mathrm{SFT}}(y \vert x)\exp\left(\frac1{\beta}f_t(x, y)\right).$$
-in $f_t$, we get
-$$f_t = \beta\log\frac{\pi_{\theta}(y \vert x)Z(x)}{\pi_{\mathrm{SFT}}(y \vert x)} = \beta\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\mathrm{SFT}}(y \vert x)} + \beta Z(x)$$
-The second term doesn't depend on $y$ and is of no interest for us. So, we set
-$$\mathcal{F}_t = \left\{\beta\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\mathrm{SFT}}(y \vert x)},\mbox{ for different $\theta$}\right\}.$$
-And we can write:
-$$f_{t} = \mathrm{argmin}_{\theta}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\mathrm{true}}(y \vert x), y'\sim\pi_{\theta_{t-1}}(y'|x)}\left[\ell\left(\beta\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\mathrm{SFT}}(y \vert x)} - \beta\log\frac{\pi_{\theta}(y'|x)}{\pi_{\mathrm{SFT}}(y'|x)}\right)\right],$$
-
-That's the final version of Player 1 move: finding optimal $\theta$ for this minimization task.
-
-Now, let's return to the Player 2. As we saw earlier, its optimal strategy is becoming:
-$$\pi^*(y \vert x) = \frac1{Z(x)}\pi_{\mathrm{SFT}}(y \vert x)\exp\left(\frac1{\beta}f_t(x, y)\right).$$
-If we substitute
-$$f_t = \beta\log\frac{\pi_{\theta_{\mathrm{optimal}}}(y \vert x)}{\pi_{\mathrm{SFT}}(y \vert x)} + \beta Z(x)$$
-here, we get
-$$\pi^*(y \vert x) = \pi_{\theta_{\mathrm{optimal}}}(y \vert x).$$
-Wow! So, Player 1 just uses the weights $\theta_{\mathrm{optimal}}$ that we used during the Player 1 move!
-
-\bigskip
-
-\textbf{Final algorithm}. We update weights $\theta$ of the LLM $\pi_{\theta}(y \vert x)$ iteratively. On step $t$ we have $\theta_{t-1}$, and we obtain $\theta_t$ by minimizing the following objective with respect to $\theta$:
-$$\mathcal{L}_{\mathrm{final}} = \mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\mathrm{true}}(y \vert x), y'\sim\pi_{\theta_{t-1}}(y'|x)}\left[\ell\left(\beta\log\frac{\pi_{\theta}(y \vert x)}{\pi_{\mathrm{SFT}}(y \vert x)} - \beta\log\frac{\pi_{\theta}(y'|x)}{\pi_{\mathrm{SFT}}(y'|x)}\right)\right].$$
-
-\newpage
-Experiments show that SPIN can significantly improve the LLM’s performance across a variety of benchmarks and even outperform models trained through DPO on a dataset with accepted/rejected labels given by GPT-4.
-
-\begin{center}
-\includegraphics[width=10cm]{self-play.png}
-\end{center}
-
-Note however, that SPIN is not a replacement for RLHF/DPO, because it's goal is completely different: while SPIN makes an LLM produce more ``likely'' completions, it doesn't introduce any kind of human preferences, so another RLHF/DPO step can still be needed after it.
-
-
-
-
-
+is also a surrogate reward function of sorts.
 
 
