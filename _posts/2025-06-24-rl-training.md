@@ -479,20 +479,20 @@ This was sketchy, of course. If you want to truly understand these formulas, ple
 
 **Group Relative Policy Optimization** (**GRPO**) became a fashionable alternative to PPO since [it was used to train **DeepSeek-R1** from **DeepSeek-V3** for long reasoning](https://arxiv.org/pdf/2501.12948). The main difference between PPO and GPRO is that GRPO doesn't use **value head** $V$. Instead, it employs batch-size **relative advantage**. Here's how it works (we use notation from the paper):
 
-1. For a prompt $q$, several completions $o_1,\ldots,o_G$ are generated.
-2. For every completion, its reward $r_i = r(q, o_i)$ is computed.
-3. Then, the **relative advantage** is calculated by normalizing the reward:
+* For a prompt $q$, several completions $o_1,\ldots,o_G$ are generated.
+* For every completion, its reward $r_i = r(q, o_i)$ is computed.
+* Then, the **relative advantage** is calculated by normalizing the reward:
 
   $$\widehat{A}_{i} = \frac{r_i - \textrm{mean}(r_1,\ldots,r_G)}{\textrm{std}(r_1,\ldots,r_G)}$$
 
   Like the trained value head in PPO, this helps to reduce variance of gradients.
 
-4.  The authors of DeepSeek-R1 suggested to use both \textbf{Clipped surrogate objective} and KL-regulatization:
+* The authors of DeepSeek-R1 suggested to use both \textbf{Clipped surrogate objective} and KL-regulatization:
 
   $$\mathcal{L}(q) = \frac1G\sum_{i=1}^G\left[\min\left(\frac{\pi_{\theta}(o_i\mid q)}{\pi_{\mathrm{old}}(o_i\mid q)}\widehat{A}_{i},
 \mathrm{clip}\left(\frac{\pi_{\theta}(o_i\mid q)}{\pi_{\mathrm{old}}(o_i\mid q)}; 1 - \varepsilon, 1 + \varepsilon\right)\widehat{A}_{i}\right) - \beta\mathbb{D}_{\mathrm{KL}}(\pi_{\theta}\|\pi_{\text{ref}})\right]$$
 
-7. The final loss is
+* The final loss is
 
   $$\mathbb{E}_{q\sim\mathcal{D},\,o_i\sim\pi_{\theta}(o\mid q)}\mathcal{L}$$
 
@@ -515,28 +515,27 @@ $$\widehat{A}_{i, t} = \frac{r_{i, t} - \textrm{mean}(r_{1, t},\ldots,r_{G, t})}
 
 And the first thing that ByteDance suggested was to ditch the KL summand. (Which sounds reasonable, because clipping and KL have the same goal.)
 
-1. **Entropy collapse phenomenon**. The authors observe that policy's entropy tends to decrease rapidly as training progresses. This might be attributed to the GRPO's clipping mechanism: 
+* **Entropy collapse phenomenon**. The authors observe that policy's entropy tends to decrease rapidly as training progresses. This might be attributed to the GRPO's clipping mechanism: 
 
-  $$\text{clip}\left(\frac{\pi_{\theta}(o_i|q)}{\pi_{\text{old}}(o_i|q)}; 1 - \varepsilon; 1 + \varepsilon)$$
+  $$\text{clip}\left(\frac{\pi_{\theta}(o_i|q)}{\pi_{\text{old}}(o_i|q)}; 1 - \varepsilon; 1 + \varepsilon\right)$$
   
-  Here, $\pi_{\theta}(o_i|q)$ can only meaningfully vary between $\pi_{\text{old}}(o_i|q)$\cdot(1 - \varepsilon)$ and $\pi_{\text{old}}(o_i|q)(1 + \varepsilon)$. If $\pi_{\text{old}}(o_i|q)$ is small for a token $o_i$, the loss function gives "insufficient motivation" for $$\pi_{\theta{old}}(o_i|q)$$ to increase. This might lead to the situation where high-probability tokens get their probabilities further boosted, while low-probability ones fade away. This can lead to a less diverse policy.
+  Here, $\pi_{\theta}(o_i\vert q)$ can only meaningfully vary between $\pi_{\text{old}}(o_\vert |q)$\cdot(1 - \varepsilon)$ and $\pi_{\text{old}}(o_i\vert q)(1 + \varepsilon)$. If $\pi_{\text{old}}(o_i\vert q)$ is small for a token $o_i$, the loss function gives "insufficient motivation" for $$\pi_{\theta{old}}(o_i\vert q)$$ to increase. This might lead to the situation where high-probability tokens get their probabilities further boosted, while low-probability ones fade away. This can lead to a less diverse policy.
 
   The authors propose a **Clip-Higher** strategy, raising the clipping ceiling and thus allowing low-probability tokens to gain more traction:
 
-  $$\text{clip}\left(\frac{\pi_{\theta}(o_i|q)}{\pi_{\text{old}}(o_i|q)}; 1 - {\color{red}\varepsilon_{\text{low}}}; 1 + {\color{red}\varepsilon_{\text{high}}})$$
+  $$\text{clip}\left(\frac{\pi_{\theta}(o_i|q)}{\pi_{\text{old}}(o_i|q)}; 1 - {\color{red}\varepsilon_{\text{low}}}; 1 + {\color{red}\varepsilon_{\text{high}}}\right)$$
 
-2. **Optimization paralysis at rewards close to 1**. When the reward, which typically ranges between 0 and 1, becomes very close to 1, the relative advantage term in GRPO, $\widehat{A}_{i,t}$, approaches $0$ because of the normalization. This significantly diminishes the optimization signal, making it difficult for the model to learn further improvements. The same issue also arises if all accuracies within a batch are close to zero.
+* **Optimization paralysis at rewards close to 1**. When the reward, which typically ranges between 0 and 1, becomes very close to 1, the relative advantage term in GRPO, $\widehat{A}_{i,t}$, approaches $0$ because of the normalization. This significantly diminishes the optimization signal, making it difficult for the model to learn further improvements. The same issue also arises if all accuracies within a batch are close to zero.
 
   The authors suggest to over-sample and filter out prompts with rewards equal to 1 and 0. This is exactly the **Dynamic Sampling** that gave the name to DAPO.
 
-
-3. **Low importance of individual tokens in long completions**. Since clipped advantages are averaged across the sequence - $\frac1{|o_i|}\sum_{i=1}^{|o_i|}$ - the contribution of any individual token's reward becomes less significant. 
+* **Low importance of individual tokens in long completions**. Since clipped advantages are averaged across the sequence, - $\frac1{\vert o_i\vert }\sum_{i=1}^{\vert o_i\vert}$ - the contribution of any individual token's reward becomes less significant. 
 
   The authors suggest averaging the advantages across the whole batch:
 
   $$\frac1G\sum_{i=1}^G\frac1{|o_i|}\sum_{i=1}^{|o_i|} \quad \mapsto \quad \frac1{G\sum_{i=1}^{G}|o_i|}\sum_{i=1}^G\sum_{t=1}^{|o_i|}$$
 
-4. **Inadequate punishment of long outputs**. In RL training, overlong samples are often truncated. But if we train long reasoners, this might backfire, because we'll be punishing long but potentially correct solutions. DAPO suggests addressing this by masking truncated sequences from loss computation and introducing a soft, linear punishment for overlong outputs.
+* **Inadequate punishment of long outputs**. In RL training, overlong samples are often truncated. But if we train long reasoners, this might backfire, because we'll be punishing long but potentially correct solutions. DAPO suggests addressing this by masking truncated sequences from loss computation and introducing a soft, linear punishment for overlong outputs.
 
 # DPO
 
@@ -575,16 +574,16 @@ $$\pi^*(y \vert x) = \frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\be
 and rewrite
 
 $$
-\mathcal{L}_{\mathrm{RLHF}} &=\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
+\mathcal{L}_{\mathrm{RLHF}} =\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
 (y \vert x)}\left[\log{Z}(x) - \log\frac{\pi_{\theta}(y \vert x)}{\frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)}\right]
 $$
 
 Now, $Z(x)$ doesn't depend on $\theta$, so it has no effect on optimization, so
 
-\begin{align*}
-\max\limits_{\theta}\mathcal{L}_{\mathrm{RLHF}} &=\min\limits_{\theta}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
+$$
+\max\limits_{\theta}\mathcal{L}_{\אקסא{RLHF}} &=\min\limits_{\theta}\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}
 (y \vert x)}\frac1{Z(x)}\pi_{\text{ref}}(y \vert x)\exp\left(\frac1{\beta}r(x, y)\right)
-\end{align*}
+$$
 
 and it is 
 
@@ -601,9 +600,11 @@ From this we can write the DPO loss function. It will differ depending on a rank
 $$p(y_a\succ y_r|x) = \sigma(r(x, y_a) - r(x, y_r))$$
 
 Now, let's recall that we want to train the LLM to favor $y_a | x$ over $y_r | x$ for all $(x, y_a, y_r)\in\mathcal{D}$. That is, to maximise all $p(y_a\succ y_r|x)$. So, the loss that we need is:
-\begin{align*}
-\mathcal{L}_{\mathrm{DPO}} &= \mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}p_{\theta}(y_a\succ y_r|x)
-\end{align*}
+
+$$
+\mathcal{L}_{\אקסא{DPO}} &= \mathbb{E}_{(x, y_a, y_r)\sim\mathcal{D}}p_{\theta}(y_a\succ y_r|x)
+$$
+
 where
 
 $$
