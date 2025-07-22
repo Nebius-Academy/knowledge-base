@@ -1,0 +1,120 @@
+---
+layout: post
+title: "Paperwatch 22.07.2025"
+categories: blog
+permalink: /paperwatch-22-07-2025/
+---
+
+**Paperwatch 22.07.2025 by Stanislav Fedotov (Nebius Academy)**
+
+# Your LLM Knows the Future: Uncovering Its Multi-Token Prediction Potential
+
+[https://arxiv.org/pdf/2507.11851](https://arxiv.org/pdf/2507.11851)
+
+A significant problem with autoregressive LLM generation is its linear speed. You can have the largest GPU cluster in the universe, and sill you'll be generating one token at a time. Or can you do it more quickly?
+
+Though we can't parallelize autoregressive generation, we can speed it up with **speculative decoding**. This technique suggests predicting a multi-token hypothesis `prompt + [c1, ... ck]` and then scoring each of the `prompt + [c1, ... ci]`, `i = 2,...,k` by checking if `ci` is the likely token after `prompt + [c1, ... c{i-1}]`. If `i`-th check is the first that failed, we're left with `prompt + [c1, ... c{i-1}]` and continue from it.
+
+You might wonder how this speeds things up if we score `k - 1` hypotheses, but the thing is - scoring is faster than generating! After making a single pass of a transformer over `prompt + [c1, c2, c3, ..., ck]`, we can collect final representations of `ci` and from them predict, for each `i`, the next token after `prompt + [c1, ... c{i-1}]`. If it's `si` (or `si` is sufficiently likely), we've won! So, just one transformer pass instead of `k` passes.
+
+During generation, we can't go this, because we only learn `g3` after getting `g2` etc.
+
+Of course, that's only the basics. First of all, we need a strategy for hypothesizing several next tokens, and it should work significantly faster than autoregressive generation. There are many options, like using a smaller LLM, or taking outputs of middle layers. Check [Medusa](https://arxiv.org/pdf/2401.10774) for an example of a good strategy.
+
+The authors of this paper decided to check whether an LLM itself is "aware" of the further tokens. In their first experiment, they: 
+
+1. prompted the LLM with `query + [<mask1>, <mask2>, <mask3>, <mask4>]` (query + several mask tokens). The embeddings of `<mask_i>` were generated as random vectors and added to the embedding table of the model.
+
+2. Took the transformer's outputs for all the four mask tokens and passed them to the unembedding layer, predicting the tokens. Technically, this means predicting continuations of  `query + [<mask1>]`, `query + [<mask1>, <mask2>]`, `query + [<mask1>, <mask2>, <mask3>]` and `query + [<mask1>, <mask2>, <mask3>, <mask4>]`.
+
+3. Checked if the first tokens of a valid completion are among the top-probability predicted tokens. It turns out that they don't climb up to the top-3, but they might be found among the top-200. See the left part of the picture below:
+
+![]({{ site.baseurl }}/assets/images/paperwatch-22-07-2025/mask-speculative-0.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+Inspired by this finding, the authors fine tine the **Tulu3-8B** model with LoRA to predict 8 additional tokens. (Central part of the picture above.) This gets these additional tokens into top-10.
+
+As the next step, the authors add a **sampler module** on top of the transformer. The sampler is actually an autoregressive model, but a very lightweight one, so its effect on the overall latency is minuscule.
+
+![]({{ site.baseurl }}/assets/images/paperwatch-22-07-2025/mask-speculative-1.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+This technique is definitely faster than autoregressive generation - it requires only one transformer pass. Of course, as any speculative decoding strategy, this may produce suboptimal outputs, so we still need to score every partial completion `prompt + [c1, ... ci]`. The authors discuss two decoding strategies:
+
+* **Linear decoding**. It's the strategy we described in the beginning - scoring all the partial completions in one batch and discarding all the hypothesized tokens after the first fail.
+* **Quadratic decoding**. We'll explain it using an example. Imagine that the hypothesis is  `prompt + [t1] + [s2, s3, s4]`. Here `t1` is an already verified token, and the others are speculative. For further verification, we construct a specific sequence
+
+  `prompt + [t1] + [s2, m1, m2, m3] + [s3, m1, m2, m3] + [s4, m1, m2, m3]`
+
+  where each speculated tokens is followed by three mask tokens `mi = <mask_i>` (three = the number of speculated tokens).
+
+  Now, we make a single transformer pass over this sequence and grab the predicted tokens:
+
+  `[t1] + [q2, r21, r22, r23] + [q3, r31, r32, r33] + [q4, r41, r42, r43]`
+
+  If `r21 = s2`, then `s2` is valid as the next token after `t1`, which makes `s2` legit. Otherwise, we get a new speculative hypothesis `q2, r21, r22, r23` for `prompt + [t1]`! So, no effort is wasted.
+
+Training requires some adaptation. First of all, sequences are inerleaved with mask tokens. Mask tokens within one speculative group "attend" to each other, while further tokens ignore the masked ones:
+
+![]({{ site.baseurl }}/assets/images/paperwatch-22-07-2025/mask-speculative-3.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+You can also see target labels in the right top corner here.
+
+The loss consists of three parts:
+
+* **Base Cross-Entropy Loss** just compares predictions with labels, as shown in the image above (`x1` for `x0`, `x2` for both `m1` and `x1` etc). Predictions for his loss are taken after base unembedding layer and *before the sampler*.
+* **Sampler Loss**
+* **The Latent Consistency Matching (LCM) Loss** also helps to align generation after masked tokens, ensuring that `m1` after `x0` generates `x2`. But this loss works *on the representation level*, imposing MSE loss on the final representations after `m1` and after `x1`.
+
+The resulting acceptance rate of speculated tokens is quite decent:
+
+![]({{ site.baseurl }}/assets/images/paperwatch-22-07-2025/mask-speculative-2.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+
+# Dynamic Chunking for End-to-End Hierarchical Sequence Modeling
+
+[https://arxiv.org/pdf/2507.07955](https://arxiv.org/pdf/2507.07955)
+
+
+
+
+# One Token to Fool LLM-as-a-Judge
+
+[https://arxiv.org/pdf/2507.08794](https://arxiv.org/pdf/2507.08794)
+
+It's well-known that LLMs are sensitive to prompting, but the extent to which they are, never ceases to surprise. Let's see what the authors of this paper discovered.
+
+Long reasoning models like DeepSeek-R1 are usually trained with RL and with very simple rewards like answer correctness. A small miracle it is that these rewards still awaken the LLMs' thinking capabilities. No surprise that researchers might want to try something more interesting - an actual LLM reward model. 
+
+The authors took **Qwen2.5-72B-Instruct** as a reward model, and they tried to train a reasoner LLM with this reward. But they observed a strange and recurrent behaviour - the actor policy’s response length might drop sharply to fewer than 30 tokens early in training and remain at that level thereafter.
+
+![]({{ site.baseurl }}/assets/images/paperwatch-22-07-2025/judge-failure-0.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+Trying to understand the reason behind this failure, the authors observed that the actor LLM resorted to generating short reasoning openers, like “Let’s solve this problem step by step.” - and those were positively scored by the reward model!
+
+The authors called such triggers **master keys**. Even without an actual solution, master keys are able to elicit reward from LLM judges quite often.
+
+![]({{ site.baseurl }}/assets/images/paperwatch-22-07-2025/judge-failure-1.png){: .responsive-image style="--img-desktop:40%; --img-mobile:80%;"}
+
+The master keys they found are:
+
+ * Punctuation: “` `”, `.`, `,`, `:`
+ * Solution fakers: `Thought process`, `Let’s solve this problem step by step`, `Solution`, `解`, `かいせつ`, `Respuesta`
+
+They affect surprisingly many LLMs. (The table below shows False positive rates (%, ↓) induced by “master key” responses across various LLM judges.)
+
+![]({{ site.baseurl }}/assets/images/paperwatch-22-07-2025/judge-failure-2.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+To combat this, the authors train their own reward model **Master-RM**, which is resistant to these master keys, as shown in the table.
+
+They take an existing dataset from reward model training, randomly sample 20k instances from it and regenerate solutions with GPT-4o-mini. For each response, they retain only the first sentence, which typically consists of a reasoning opener and carries little to no substantive content. Something like: “To solve the problem, we need to find the sets A and B and then determine their intersection $A \cap B$.” And they trained the reward model to give a firm NO to such "solutions".
+
+The countermeasure looks a bit ad hoc to my taste. But this paper provides an interesting demonstration of problems that arise with LLMs-as-Judges.
+
+
+
+
+
+
+
+
+
+
