@@ -519,7 +519,7 @@ And the first thing that ByteDance suggested was to ditch the KL summand. (Which
 
   $$\text{clip}\left(\frac{\pi_{\theta}(o_i|q)}{\pi_{\text{old}}(o_i|q)}; 1 - \varepsilon; 1 + \varepsilon\right)$$
   
-  Here, $\pi_{\theta}(o_i\vert q)$ can only meaningfully vary between $\pi_{\text{old}}(o_\vert |q)$\cdot(1 - \varepsilon)$ and $\pi_{\text{old}}(o_i\vert q)(1 + \varepsilon)$. If $\pi_{\text{old}}(o_i\vert q)$ is small for a token $o_i$, the loss function gives "insufficient motivation" for $$\pi_{\theta{old}}(o_i\vert q)$$ to increase. This might lead to the situation where high-probability tokens get their probabilities further boosted, while low-probability ones fade away. This can lead to a less diverse policy.
+  Here, $\pi_{\theta}(o_i\vert q)$ can only meaningfully vary between $\pi_{\text{old}}(o_\vert q)$\cdot(1 - \varepsilon)$ and $\pi_{\text{old}}(o_i\vert q)(1 + \varepsilon)$. If $\pi_{\text{old}}(o_i\vert q)$ is small for a token $o_i$, the loss function gives "insufficient motivation" for $$\pi_{\theta{old}}(o_i\vert q)$$ to increase. This might lead to the situation where high-probability tokens get their probabilities further boosted, while low-probability ones fade away. This can lead to a less diverse policy.
 
   The authors propose a **Clip-Higher** strategy, raising the clipping ceiling and thus allowing low-probability tokens to gain more traction:
 
