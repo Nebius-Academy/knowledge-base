@@ -13,7 +13,7 @@ While Supervised Fine Tuning trains LLMs on pairs $(query, answer)$, explicitly 
 
   It may be complicated to train an LLM for all that by showing only positive examples. A better idea would be to give the LLM both **positive** and **negative** signal by rewarding it for generating aligned completions and punishing for misaligned generation. This way, it might learn the boundary between good and evil.
 
-  This type of RL training requires a **reward model** - a special neural network that scores each completion, predicting its reward (which might be positive or negative). It is trained on  Though it's additional work, training a reward model, distinguishing alignment from misalignment, is much easier than 
+  This type of RL training requires a **reward model** - a special neural network that scores each completion, predicting its reward (which might be positive or negative). It is trained on pairs `(prompt + accepted completion, prompt + rejected completion)`. Though it's additional work, training a reward model that distinguishes alignment from misalignment, is much easier than generating a high-quality, large, and representative set of aligned (prompt, completion) pairs.
 
 2. Training **long reasoners** such as DeepSeek-R1 or Qwen3. Though SFT may also be used to train an LLM to generate long, non-linear reasoning, gathering a high-quality dataset of non-linear solutions for such training is tedious. On the other hand, with RL, you only need the problems and the answers - no solutions at all! It turns out that a well-pre-trained model will emerge as a long reasoner with as little training signal as:
 
@@ -146,7 +146,7 @@ The Bradley-Terry model treats the outcome of a game between teams $(i, j)$ as a
 $$p^*(team_i\succ team_j) = \sigma(\beta_i - \beta_j) = \frac{1}{1 + e^{-(\beta_i - \beta_j)}} = $$
 $$=\frac{e^{\beta_i - \beta_j}}{1 + e^{\beta_i - \beta_j}} = \frac{e^{\beta_i}}{e^{\beta_i} + e^{\beta_j}}$$
 
-Simply put, it's our usual way of making $\beta_i - \beta_j$ into probabilities of winning, such that going $team_i\succ team_j\longleftrightarrow team_i\succ team_j$ is made by sign change $\beta_i - \beta_j \longleftrightarrow \beta_j - \beta_i$:
+Simply put, it's our usual way of making $\beta_i - \beta_j$ into probabilities of winning, such that going $team_i\succ team_j\longleftrightarrow team_j\succ team_i$ is made by sign change $\beta_i - \beta_j \longleftrightarrow \beta_j - \beta_i$:
 
 $$p^*(team_j\succ team_j) = 1 - \sigma(\beta_i - \beta_j) = \sigma(\beta_j - \beta_j)$$
 
@@ -519,7 +519,7 @@ And the first thing that ByteDance suggested was to ditch the KL summand. (Which
 
   $$\text{clip}\left(\frac{\pi_{\theta}(o_i|q)}{\pi_{\text{old}}(o_i|q)}; 1 - \varepsilon; 1 + \varepsilon\right)$$
   
-  Here, $\pi_{\theta}(o_i\vert q)$ can only meaningfully vary between $\pi_{\text{old}}(o_\vert q)$\cdot(1 - \varepsilon)$ and $\pi_{\text{old}}(o_i\vert q)(1 + \varepsilon)$. If $\pi_{\text{old}}(o_i\vert q)$ is small for a token $o_i$, the loss function gives "insufficient motivation" for $$\pi_{\theta{old}}(o_i\vert q)$$ to increase. This might lead to the situation where high-probability tokens get their probabilities further boosted, while low-probability ones fade away. This can lead to a less diverse policy.
+  Here, $\pi_{\theta}(o_i\vert q)$ can only meaningfully vary between $\pi_{\text{old}}(o_i\vert q)\cdot(1 - \varepsilon)$ and $\pi_{\text{old}}(o_i\vert q)(1 + \varepsilon)$. If $\pi_{\text{old}}(o_i\vert q)$ is small for a token $o_i$, the loss function gives "insufficient motivation" for $\pi_{\theta{old}}(o_i\vert q)$ to increase. This might lead to the situation where high-probability tokens get their probabilities further boosted, while low-probability ones fade away. This can lead to a less diverse policy.
 
   The authors propose a **Clip-Higher** strategy, raising the clipping ceiling and thus allowing low-probability tokens to gain more traction:
 
