@@ -90,5 +90,73 @@ Imagine that you want your LLM to play the role of a grumpy and unhelpful AI ass
 
 Now, the new token doesn't have an embedding defined for it:
 
+![]({{ site.baseurl }}/assets/images/llm-customization/prompt-tuning.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
 
+And we’ll train this green vector during the fine tuning. **And the good thing about this is that you have no need for prompt engineering! Gradient descent will create an optimal vector for you.**
 
+For fine-tuning, you need a dataset of strings `(user\_prompt, grumpy\_assistant's\_answer)`.
+
+**Note**: ****There’s a huge difference between prompt engineering and prompt tuning.
+
+Prompt tuning trains a single vector which usually doesn't correspond to any real token. Our resulting vector might be close to the embedding vectors of `“grumpy”` or `“unhelpful”`,  but generally this is not guaranteed; it can have no interpretation whatsoever.
+
+# LoRA (Low-rank adapters)
+
+The purpose of LoRA is as follows: we want to be able to fine tune every layer of the model, but at the same time we want to keep the number of optimized parameters low. This is achieved with **low-rank updates**. To understand the math of it, we recommend you to check the [Low Rank Fine-Tuning](https://medium.com/nebius/fundamentals-of-lora-and-low-rank-fine-tuning-e748f2f1255d) long read, and meanwhile, we'll only discuss the technical side here.
+
+First of all, we’ll choose the layers to apply LoRA to. This can be any linear layers, that is, any layers where an input vector is multiplied by a matrix:
+$x\mapsto Wx,\quad x\in\mathbb{R}^d, W\in\mathbb{R}^{m\times d},$
+The latter means that $W$ is a matrix of size $m\times d$.
+
+LoRA suggests not changing the $W$ but instead adding a trainable summand
+$x\mapsto (W + {\color{orange}{BA}})x,$
+where $A$ is a matrix of size $d\times r$ and $B$ is a matrix of size $m\times r$, where $r$ is typically small, say: $4$, $8$, $16$, or $64$.
+
+**Example**. If $W$ is $4096\times4096$ which is quite a typical scale for intra-self-attention matrix multiplications, and $r = 16$,
+
+- $W$ has $16,777,216$ parameters,
+- $BA$ has $4096\times16 + 16\times4096 = 131,072$ parameters which is two orders of magnitude less.
+
+So, even with the optimizer's memory overhead, the LoRA's additional memory requirements are dwarfed by the model storage size.
+
+Let's illustrate this:
+
+![]({{ site.baseurl }}/assets/images/llm-customization/lora-scheme.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+**Note**: **when** we train LoRA, we store both the initial $W$ and the two new matrices $A$ and $B$; this way, we can access the base model at any time.
+
+**Here’s an optional comment that you may skip this until the “LLM Internals” module.** There are several places in a transformer-based LLM where you can encounter linear layers. The two main are:
+
+- The self-attention mechanism, where linear transformations are used to produce queries, keys, values, and the final outputs.
+- The feedforward block, which consists of several fully connected (linear) layers.
+
+Usually, both groups are fine tuned, but it is generally advised that the attention block is fine tuned, because it is more critical for the final model quality.
+
+## LoRA vs. full fine tuning
+
+It’s generally agreed upon that LoRA works worse than full fine tuning.
+
+The authors of this paper, “[Lora learns less and forgets less](https://arxiv.org/pdf/2405.09673)”, specifically compared LoRA will full fine tuning in context of learning specific knowledge. They reaffirmed that it indeed performs worse than full fine tuning, but they also noticed that LoRA preserves generalist capability better than full fine-tuning.
+
+# Model distillation
+
+A larger LLM is generally more capable than a smaller one. For instance, **Llama-3.1-405B** is likely to outperform **Llama-3.1-8b** in many tasks. However, power comes at a price: a massive model is slower, more compute-intensive, and significantly more expensive. This creates a strong incentive to **compress** large LLMs into smaller, more compute-efficient models while retaining some of the capabilities of the original.
+
+Take **DeepSeek-R1**, for example. Though it's a strong reasoner, deploying efficiently it goes far beyond the capabilities of most AI-engineers (even if they have enough GPUs). However, it has smaller distilled versions - for example, **DeepSeek-R1-Distill-Llama-70B**. Let's discuss what is distillation.
+
+**Knowledge distillation** is the process of transferring knowledge from a “**teacher**” model to a “**student**” model. The student model is typically smaller than the teacher, hence the term “distillation.”
+
+A widely known distillation scheme was proposed by Geoffrey Hinton and his co-authors in their [paper](https://arxiv.org/pdf/1503.02531). Below is an illustration for the multiclass classification task:
+
+![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/662b586e-86b7-4f44-9740-1dc06c7a67a4/f56ee372-d9d1-4712-b9d4-8f46fca8391a/image.png)
+
+![]({{ site.baseurl }}/assets/images/llm-customization/hintons_distillation.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+The loss has two components:
+
+- The first is the **cross-entropy** loss, which guides the student model toward solving the initial task correctly.
+- The second is the [**Kullback-Leibler divergence**](https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence) between the teacher’s and student’s predictions. This term guides the student to replicate the teacher’s predictions.
+
+The coefficient $\lambda$ balances these two objectives. An interesting observation is that following the teacher’s predictions may, in some cases, be more beneficial for the student than predicting the initial targets. In a sense, the teacher may “filter out” noise and hard-to-predict peculiarities in the initial data.
+
+**Note**: While Hinton’s distillation process is quite efficient, training a small LLM (such as an 8B model) from scratch still requires a substantial amount of data. In the next chapter, we’ll learn how NVIDIA has approached this challenge to alleviate the data demands.
