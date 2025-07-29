@@ -67,7 +67,8 @@ Let's formalize this a bit using conventional RL terminology:
 - The **agent** is a bot which is capable of several **actions**.
 - The **environment** is the game. It defines the possible states, the possible actions, and the effects of each action on the current state – and which state will be the next.
 - The **policy** is the (trainable) strategy the bot uses for playing. In our case, this is the neural network that predicts actions given the current state, or the state history.
-- The **reward** is the score that we assign to the states. For example, defeating a guard, progressing to a next level, or winning the game might have positive rewards, while falling into a pit or getting wounded by a guard would mean negative rewards.
+- The **reward** is the score that we assign to an action performed in a certain state. For example, defeating a guard, progressing to a next level, or winning the game might have positive rewards, while falling into a pit or getting wounded by a guard would mean negative rewards.
+- A **trajectory** is a particular sequence of states the agent finds itself in and actions it takes. In the Prince of Persia example, the whole playthrough will be a trajectory.
 
 ![]({{ site.baseurl }}/assets/images/llm-training-overview/princely-rl.png){: .responsive-image style="--img-desktop:75%; --img-mobile:90%;"}
 
@@ -99,6 +100,15 @@ Reinforcement Learning strategies might be classified along several axes:
 **Note**. The term "**RLHF**" (**Reinforcement Learning with Human Feedback**) historically refers to alignment training with a reward model, which is trained on human-annotated data (hence human feedback). 
 
 In this long read, we'll discuss most notable RL strategies used to train LLMs. We'll focus on the single-turn scenario of alignment / long reasoning training; this will make things easier for us and allow to avoid pressing a whole RL course into one text. At the same time, we won't be shy with math, so read with caution.
+
+---
+
+In a general, multi-turn case, there is another important distinction between:
+
+* **outcome reward**, which is only assigned at the end of a trajectory
+* **process reward**, which is assigned for each action (or some action group)
+
+If we consider an LLM's generation as a multi-turn game, where each turn is generation of a single token, the completion-wise reward we discussed earlier becomes an outcome reward, while a process reward would score partial completions after each generated token.
 
 # Part 1. Reward model training
 
@@ -175,7 +185,7 @@ To start with, we have a certain reward function $r(x, y)$ ($x$ is a prompt and 
 
 Some notations:
 
-* Starting from now, we'll be denoting our LLM by $\pi_{\theta}(y\vert x)$ and calling it \textbf{policy} to match the traditional RL terminilogy. But don't be afraid: it's just our good old LLM with parameters $\theta$ that predicts completion $y$ given a prompt $x$ or, more generally, probabilities of completions $y$ given $x$.
+* Starting from now, we'll be denoting our LLM by $\pi_{\theta}(y\vert x)$ and calling it **policy** to match the traditional RL terminilogy. But don't be afraid: it's just our good old LLM with parameters $\theta$ that predicts completion $y$ given a prompt $x$ or, more generally, probabilities of completions $y$ given $x$.
 * We take a dataset of prompts $\mathcal{D} = \{(x)\}$. Yes, no completions now;
 * We want to maximize the reward $r(x, y)$ of generated $y$ in pursuit of making the LLM give us more rewarding completions:
 $$\mathbb{E}_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}r(x, y)\longrightarrow\max\limits_{\theta}.$$
@@ -245,7 +255,7 @@ $$\frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\nabla_{\theta}\pi_{\theta}(y\vert
 
 $$= \frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\nabla_{\theta}\pi_{\theta}(y\vert x)\cdot \frac{\pi_{\theta}(y\vert x)}{\pi_{\theta}(y\vert x)}r(x, y)$$
 
-Luckily, $\frac{\nabla_{\theta}\pi}(\pi) = \nabla_{\theta}\log{\pi}$, so we can rewrite this as:
+Luckily, $\frac{\nabla_{\theta}\pi}{\pi} = \nabla_{\theta}\log{\pi}$, so we can rewrite this as:
 
 $$= \frac1{|D|}\sum_{x\sim\mathcal{D}}\,\sum_{y}\pi_{\theta}(y\vert x)\cdot \nabla_{\theta}\log\pi_{\theta}(y\vert x)r(x, y) = 
 \mathbb{E}_{x\sim\mathcal{D}}\,\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}\log\pi_{\theta}(y\vert x)r(x, y)$$
@@ -254,9 +264,15 @@ Now, given a batch of prompts $B$, we can estimate the gragient as
 
 $$\frac1{|D|}\sum_{x\sim\mathcal{D}, y\sim\pi_{\theta}(y\vert x)}\,\nabla_{\theta}\log\pi_{\theta}(y\vert x)r(x, y)$$
 
-Note that we actually estimated the internal mathematical expectation $\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}$ with just one point. This makes the estimate not very accurate, but at least theoretically unbiased.
+Note that we actually estimated the internal mathematical expectation 
+
+$$\mathbb{E}_{y\sim\pi_{\theta}(y\vert x)}[\ldots]$$ 
+
+with just one point. This makes the estimate not very accurate, but at least theoretically unbiased.
 
 ## Step 3. Advantage
+
+*The formulas here are only valid for the single-turn setup (outcome reward)*
 
 Though the gradient estimate we've produced is unbiased, it is still very noisy, with high variance. A common practice is replacing the reward in the loss with the **advantage functon** 
 
@@ -264,7 +280,7 @@ $$\widehat{A}(x, y) = r(x, y) - \widehat{V}_{\phi}(x),$$
 
 where $\widehat{V}_{\phi}(x)$ is an estimate of the average reward of $r(x, y)$, trained alongside the policy as a separate LLM's "value head" with the loss
 
-$$\frac1{|B|}\sum{x\in B, y\sim\pi_{\theta}(y\vert x)}\left(\widehat{V}_{\phi}(x) - r(x, y)\right)$$
+$$\frac1{|B|}\sum_{x\in B, y\sim\pi_{\theta}(y\vert x)}\left(\widehat{V}_{\phi}(x) - r(x, y)\right)^2$$
 
 The cool fact about advantage is that
 
@@ -449,29 +465,29 @@ This formula looks more or less the same as its single-turn counterpart, but the
 
 In multi-turn setup, it's a more complicated thing. Without going into details, we'll say that
 
-$$\widehat{A}_t(x, y_{< t}, y_t) = Q_t(x, y_{< t}, y_t) - V_t(x, y_{< t}),$$
+$$\widehat{A}_t(\underbrace{[x, y_{< t}]}_{\text{state}}, \underbrace{y_t}_{\text{action}}) = Q_t([x, y_{< t}], y_t) - V_t([x, y_{< t}]),$$
 
 where
 
-* $V_t(x, y_{< t}, y_t)$ is smth like the expected cumulative reward we can get, if we start with $x, y_{< t}$ and generate further tokens with $\pi_{\theta}$. As before, it is predicted by a trained **value head**.
-* $Q_t(x, y_{< t}, y_t)$ is smth like the expected cumulative reward we can get, if we start with $x, y_{< t}$, *then choose $y_t$ as the next token* and, after that, generate further tokens with $\pi_{\theta}$. There are different ways of calculating it. Probably the most popular is the **1-step** lookahead
+* $V_t([x, y_{< t}])$ is smth like the expected cumulative reward we can get, if we start with $[x, y_{< t}]$ and generate further tokens with $\pi_{\theta}$. As before, it is predicted by a trained **value head**.
+* $Q_t([x, y_{< t}], y_t)$ is smth like the expected cumulative reward we can get, if we start with $x, y_{< t}$, *then choose $y_t$ as the next token* and, after that, generate further tokens with $\pi_{\theta}$. There are different ways of calculating it. Probably the most popular is the **1-step** lookahead
 
-$$Q_t\bigl(x,\;y_{<t},\;y_t\bigr)
+$$Q_t\bigl([x,\;y_{<t}],\;y_t\bigr)
 \;\approx\;
 r\bigl(x,\;y_{\leqslant t}\bigr)
 \;+\;
 \gamma\,
-V_{t+1}\bigl(x,\;y_{\leqslant t+1}\bigr).,$$
+V_{t+1}\bigl([x,\;y_{\leqslant t+1}]\bigr).,$$
 
   where $0 < \gamma < 1$ is a hyperparameter.
 
 Quite often though, a more sophisticated **Generalized Advantage Estimation** is used:
 
-$$\widehat{A}^{\text{GAE}}_t(x, y_{< t}, y_t) = \sum_{l=0}^{\infty}(\gamma\lambda)^l\delta_{t+l},$$
+$$\widehat{A}^{\text{GAE}}_t([x, y_{< t}], y_t) = \sum_{l=0}^{\infty}(\gamma\lambda)^l\delta_{t+l},$$
 
 where $0 < \lambda < 1$ is yet another hyperparameter and
 
-$$\delta_l = r(x, y_{\leqslant l}) ​+ \gamma V_{l+1}(x, y_{\leqslant l}, y_{l+1}) - V_l(x, y_{<l}, y_l)$$
+$$\delta_l = r(x, y_{\leqslant l}) ​+ \gamma V_{l+1}([x, y_{\leqslant l}]) - V_l([x, y_{<l}])$$
 
 This was sketchy, of course. If you want to truly understand these formulas, please consider taking a full RL course.
 
