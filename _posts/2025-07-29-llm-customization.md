@@ -71,12 +71,17 @@ Full fine tuning might be out of reach for most LLM users. But why is that?
 
 Well, the main reason is that, during training, you have much higher compute requirements. This means that, if you take, for example, Adam, you need to store at minimum the gradients, as well as first and the second order statistics:
 
-$$\color{blue}{g_t} = \nabla_\theta f_t(\theta_{t-1}),\\
-\color{blue}{m_t} = \beta_1 \cdot m_{t-1} + (1 - \beta_1) \cdot g_t,\\
-\color{blue}{v_t} = \beta_2 \cdot v_{t-1} + (1 - \beta_2) \cdot g_t^2,\\
-\hat{m}_t = m_t / (1 - \beta_1^t),\\
-\hat{v}t = v_t / (1 - \beta_2^t),\\
-\theta_t = \theta{t-1} - \alpha \cdot \hat{m}_t / (\sqrt{\hat{v}_t} + \epsilon),$$
+$$\color{blue}{g_t} = \nabla_\theta f_t(\theta_{t-1}),$$
+
+$$\color{blue}{m_t} = \beta_1 \cdot m_{t-1} + (1 - \beta_1) \cdot g_t,$$
+
+$$\color{blue}{v_t} = \beta_2 \cdot v_{t-1} + (1 - \beta_2) \cdot g_t^2,$$
+
+$$\hat{m}_t = m_t / (1 - \beta_1^t),$$
+
+$$\hat{v}t = v_t / (1 - \beta_2^t),$$
+
+$$\theta_t = \theta{t-1} - \alpha \cdot \hat{m}_t / (\sqrt{\hat{v}_t} + \epsilon),$$
 
 And this is 3 times the required memory for storing the weights (and we haven't even started to discuss the implementation itself!). Given that we often struggle just to fit the LLM weights into a GPU, something 4 times this size will most likely be absolutely prohibitive.
 
