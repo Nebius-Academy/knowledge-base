@@ -12,7 +12,7 @@ At the moment, the following articles are available:
 ## LLM training and architecture
 
 * [LLM Training Overview](https://nebius-academy.github.io/knowledge-base/llm-training-overview/)
-* 
+* [LLM architecture details](https://nebius-academy.github.io/knowledge-base/transformer-architectures/)
 
 ## RAG and databases
 
@@ -21,9 +21,16 @@ At the moment, the following articles are available:
 * [Hallucinations in Retrieval-Augmented LMs](https://nebius-academy.github.io/knowledge-base/hallucinations-in-ralms/)
 * [Advanced RAG Issues](https://nebius-academy.github.io/knowledge-base/advanced-rag-issues/)
 
+## Fine tuning and RL
+
+* [Fine tuning basics](https://nebius-academy.github.io/knowledge-base/llm-customization/)
+* [RL training for LLMs](https://nebius-academy.github.io/knowledge-base/rl-training/)
 
 # Paperwatch reviews
 
 Paperwatch is the ongoing project by Stanislav Fedotov. Every two weeks, we share a list of recent publications with we find interesting, along with brief discussion of their ideas and impact.
 
 * [28.05.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-28-05-2025/)
+* [11.06.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-11-06-2025/)
+* [01.07.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-01-07-2025/)
+* [22.07.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-22-07-2025/)
