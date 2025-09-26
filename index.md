@@ -34,3 +34,7 @@ Paperwatch is the ongoing project by Stanislav Fedotov. Every two weeks, we shar
 * [11.06.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-11-06-2025/)
 * [01.07.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-01-07-2025/)
 * [22.07.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-22-07-2025/)
+* [11.08.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-11-08-2025/)
+* [25.08.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-25-08-2025/)
+* [08.09.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-08-09-2025/)
+* [29.09.2025](https://nebius-academy.github.io/knowledge-base/paperwatch-29-09-2025/)
