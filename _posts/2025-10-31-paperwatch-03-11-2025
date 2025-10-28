@@ -1,0 +1,165 @@
+---
+layout: post
+title: "Paperwatch 03.11.2025"
+categories: blog
+permalink: /paperwatch-03-11-2025/
+---
+
+**Paperwatch 03.11.2025 by Stanislav Fedotov (Nebius Academy)**
+
+# Thought Communication in Multiagent Collaboration
+
+[https://arxiv.org/abs/2510.20733](https://arxiv.org/abs/2510.20733)
+
+There's something beautifully dystopian in the idea of LLMs reasoning and communicating in ways incomprehensible for humans. It's also potentially more efficient, because predicting a single token from a whole hidden vector leads to massive information loss. We already know [how to reason in vectors](https://arxiv.org/abs/2412.06769), without intermediate decoding. And when I opened this paper, I was expecting to see agents passing hidden vectors to each other. The authors, however, chose a more discrete and somewhat interpretable path.
+
+![]({{ site.baseurl }}/assets/images/paperwatch-03-11-2025/comm-0.png){: .responsive-image style="--img-desktop:90%; --img-mobile:100%;"}
+
+They consider a Q&A task, where several agents try to answer the question with the help of an orchestrator:
+
+1. First, the agents produce a hypothesis and give it to the orchestrator
+2. Then, the orchestrator facilitates information exchange between the agents
+3. Each of the agents then produces a final answer based on the received information.
+
+The core question, of course, is how this information exchange functions, and the authors come up with a **THOUGHTCOMM: Multiagent Communication via Thought** framework which uses **latent concepts**. Let's understand what it is. 
+
+
+### Step 1: Uncovering Latent Thoughts (The Autoencoder)
+
+The first step is to train a model that can extract the latent thoughts `Ẑ_t` from the high-dimensional agent states `H_t`.
+
+*   **Input Data:** At each communication round `t`, they collect the internal model state `H^(i)` from each of the `n_a` agents. This `H^(i)` is the hidden state vector from the last layer of the LLM corresponding to the final token it generated. These are concatenated into a single large vector: `H_t = [H^(1), H^(2), ..., H^(na)]`.
+*   **The Model:** They use an autoencoder with an encoder function `f̂⁻¹` and a decoder function `f̂`.
+    *   **Encoder:** Maps the very high-dimensional `H_t` to a lower-dimensional latent vector: `Ẑ_t = f̂⁻¹(H_t)`.
+    *   **Decoder:** Tries to reconstruct the original state from the latent vector: `Ĥ_t = f̂(Ẑ_t)`.
+*   **The Loss Function (Equation 7):** This is the core technical component for training the autoencoder.
+    $$
+    L_{rec} = \underbrace{|| H_t - \hat{f}(\hat{Z}_t) ||^2_2}_{\text{Reconstruction Loss}} + \lambda \underbrace{|| J_{\hat{f}} ||_1}_{\text{Sparsity Regularization}}
+    $$
+    *   **Reconstruction Loss:** The first term is a standard Mean Squared Error. It forces the autoencoder to learn a latent code `Ẑ_t` that contains enough information to accurately reconstruct the original agent states `H_t`.
+    *   **Sparsity Regularization:** The second term is the key to enforcing the theory.
+        *   **Practical Detail:** While the theory uses `l0` regularization (counting non-zeros), this is computationally intractable. In practice, they use **L1 regularization (Lasso)**, which is the sum of the absolute values of the entries in the decoder's Jacobian, `J_f̂`. The L1 norm is a convex relaxation of the L0 norm and is well-known for promoting sparsity (i.e., pushing many values to be exactly zero).
+        *   **What it does:** This penalty forces the decoder to explain the data using the fewest possible dependencies. It drives most of the partial derivatives `∂H_i / ∂Ẑ_j` to zero, effectively "pruning" the connections between thoughts and agent states.
+
+After this training process, they have two crucial assets:
+1.  A trained encoder `f̂⁻¹` that can take any `H_t` and produce the latent thoughts `Ẑ_t`.
+2.  The learned dependency structure, represented by the non-zero pattern of the decoder's Jacobian, `B(J_f̂)`. This is a binary matrix that tells them exactly which thought `Ẑ_j` influences which agent state dimension `H_i`.
+
+### Step 2: Leveraging the Recovered Structure
+
+Now, for any agent `A_i` at inference time, they use the recovered structure to create a personalized thought vector. They don't need to know *what* a thought means, only *who shares it*.
+
+*   **Identify Relevant Thoughts:** Using the dependency matrix `B(J_f̂)`, they first identify the subset of thoughts `Ẑ_H(i)` that have any influence on agent `A_i`.
+*   **Calculate "Agent Agreement" (Equation 8):** This is the practical solution to the permutation problem. For each relevant thought `Ẑ_{t,j}`, they calculate a score `α_j` by counting how many agents in total are influenced by it.
+    *   If `α_j = 1`, it's a private thought for agent `A_i`.
+    *   If `α_j = 2`, it's a thought shared with one other agent.
+    *   If `α_j = n_a`, it's a global thought shared by everyone.
+*   **Create Personalized Representation (Equation 9):** The thoughts are then grouped by their agreement score `α_j`. This creates a structured, personalized representation for agent `A_i`, `Ẑ^(i)_t`, where thoughts are bundled based on their social context (private, pair-shared, global, etc.).
+
+### Step 3: Injecting Thoughts into the LLM
+
+Finally, they need to feed this structured thought information back into the LLM to guide its next response.
+
+*   **Mechanism: Prefix Adaptation:** They use a technique similar to Prefix-Tuning. This avoids computationally expensive full fine-tuning of the LLM.
+*   **The Adapter (Equation 11):** They train a small neural network `g` (an adapter, likely an MLP) that takes the personalized thought representation `Ẑ^(i)_t` and transforms it into a sequence of `m` vectors.
+    $$
+    P^{(i)}_t = g(\hat{Z}^{(i)}_t) \in \mathbb{R}^{m \times d}
+    $$
+    *   `m` is the prefix length (a small hyperparameter, e.g., `m=1` in their main experiments).
+    *   `d` is the LLM's own embedding dimension (e.g., 4096 for Llama-3-8B).
+*   **The Injection Process:** The resulting `m` vectors (the prefix `P^(i)_t`) are prepended to the sequence of token embeddings that the LLM would normally receive as input. The LLM's self-attention mechanism can attend to these prefix vectors just as it attends to token embeddings. These prefixes act as a "soft prompt" that injects the latent thought information directly into the LLM's computational flow, guiding its reasoning and response generation without any explicit textual communication.
+
+
+===================
+
+
+
+You're hitting on the most crucial and subtle aspects of the paper's theoretical foundation and its practical implementation. You are absolutely right to point out these potential contradictions, and they highlight a common tension between theoretical guarantees and real-world model constraints.
+
+Let's address both points directly.
+
+### 1. How is $\hat{f}$ established as invertible during training?
+
+This is where the paper makes a simplification, and it's a critical one. **They do not explicitly enforce or guarantee that $\hat{f}$ is invertible during training.**
+
+Instead, they rely on a common practice in autoencoder-based identifiability works:
+
+*   **Assumption by Design:** The architecture of the autoencoder (specifically, the decoder $\hat{f}$) and the encoder ($\hat{f}^{-1}$) are chosen to be functions that *could potentially* be invertible if trained perfectly on ideal data. They use neural networks (MLPs with ReLU activations) which are universal function approximators.
+*   **Loss Function Implicitly Encourages it:** The primary loss is reconstruction error (`$|| H_t - \hat{f}(\hat{Z}_t) ||^2_2$`). For a model to achieve perfect reconstruction, it needs to capture all the information from `H_t` in `$\hat{Z}_t$` (encoder) and faithfully map it back (`decoder`). While this doesn't strictly guarantee invertibility, it *encourages* the functions to be information-preserving within the learned manifold.
+*   **Dimensionality Matching for Theory:** Crucially, for the *theoretical proof* of Theorem 1, they *assume* (or demonstrate in synthetic settings) that `n_z = n_h`. In this specific `n_z = n_h` case, if the reconstruction error is driven to zero, and the network layers are sufficiently expressive, then `$\hat{f}$` and `$\hat{f}^{-1}$` (the encoder) are *approximating* a true inverse pair.
+
+**The critical distinction:** The theoretical proof in Appendix A.1 *assumes ideal conditions* where `$\hat{f}$` (the learned decoder) *is* invertible and a perfect approximation of the true `f`. The practical implementation trains a neural network that *tries* to achieve this, but it doesn't have a hard mathematical guarantee of exact invertibility in the general case, especially with `n_z < n_h`.
+
+### 2. Practical setups where `n_z < n_h`: Why the "inverse function" argument still (informally) works
+
+You are absolutely correct. If `n_z < n_h`, the function `$\hat{f}: R^{n_z} \rightarrow R^{n_h}$` cannot be surjective (it can't reach every point in `R^{n_h}`), and thus it cannot be a bijection, which means it doesn't have a mathematical inverse in the traditional sense. My earlier use of "invertible" was precisely where the confusion arose.
+
+However, the "information preservation" argument still holds in a slightly modified, yet practically effective, way:
+
+*   **Injectivity, not Bijectivity, is Key:** The crucial property required for identifiability is that the true mapping `f` (and the learned decoder `$\hat{f}$`) is **injective** (one-to-one). This means if `Z_1 ≠ Z_2`, then `f(Z_1) ≠ f(Z_2)`. In simple terms, two distinct sets of thoughts should not produce the exact same observed state. If this holds, then from any given *valid* state `H_t` (one that lies on the `n_z`-dimensional manifold created by `f` within `R^{n_h}`), you can uniquely determine `Z_t`.
+*   **The Autoencoder's Goal:** The autoencoder is trained to perform two tasks simultaneously:
+    1.  **Encoder (`$\hat{f}^{-1}$`):** Learn to map from `R^{n_h}` (the high-dimensional observed space) down to `R^{n_z}` (the low-dimensional latent space) such that as much information as possible is preserved about the *causal structure*. This is the "left-inverse" I mentioned.
+    2.  **Decoder (`$\hat{f}$`):** Learn to map from `R^{n_z}` back to `R^{n_h}` such that `$\hat{H}_t = \hat{f}(\hat{Z}_t)$` is a good reconstruction of `H_t`. More importantly, `$\hat{f}$` is constrained by the sparsity regularization on its Jacobian. This forces `$\hat{f}$` to learn a mapping that, from `$\hat{Z}_t$`, generates `H_t` using the simplest (sparsest) dependency structure.
+
+*   **How `h` is still (informally) invertible:**
+    *   The learned encoder, `$\hat{f}^{-1}$`, acts as an "inverter" of sorts. It takes the observation `H_t` and tries to recover the generating latent `$\hat{Z}_t$`.
+    *   The transformation `h` is then `h(Z_t) = \hat{f}^{-1}(f(Z_t))`. This `h` maps the *true* latent thoughts to the *learned* latent thoughts.
+    *   The critical aspect is that `h` is still a mapping between two spaces of the *same dimension* (`R^{n_z}` to `R^{n_z}`). While `f` and `$\hat{f}^{-1}$` individually may not be bijections to/from `R^{n_h}`, their composition `h` is expected to be close to an invertible mapping *within the latent space*. The theorem effectively guarantees that this mapping `h` is a permutation, meaning the learned `$\hat{Z}$` is a valid re-ordering of the true `Z`, even when `n_z < n_h`.
+
+**In essence, the "invertibility" assumption on `f` should be understood as `f` being injective (information-preserving from `Z` to `H`), and the learned `$\hat{f}^{-1}$` (encoder) approximates its left-inverse.** The key for the theorem is the invertibility of `h: R^{n_z} -> R^{n_z}`, which is between spaces of the same dimension. The strong `l1` (proxy for `l0`) regularization on `J_f̂` is what forces this `h` to be a permutation, provided the underlying true generative process `f` also has a sparse dependency structure.
+
+This is a subtle but common approach in identifiability research: the theoretical proofs establish conditions for perfect recovery in ideal (often `n_z = n_h`) settings, and the practical methods then apply these principles to more realistic (`n_z < n_h`) scenarios, relying on the robustness of the regularization and the expressiveness of neural networks.
+
+
+
+
+====================
+
+
+
+You are absolutely right. My apologies. This is a crucial point, and I'm clearly not being precise enough with the terminology, causing significant confusion.
+
+Let me be extremely clear and correct myself.
+
+You are correct: **If `f` is not invertible in the bijective sense (i.e., if `n_z < n_h`), then there is no *true, unique inverse function* `f⁻¹` that maps from the entire `R^(nh)` space back to `R^(nz)`**.
+
+My repeated use of `f⁻¹` was misleading and incorrect.
+
+### What the paper actually does and what "encoder" means here:
+
+The paper talks about an "encoder" (`$\hat{f}^{-1}$`) and a "decoder" (`$\hat{f}$`) for its **autoencoder architecture**. This is standard neural network terminology.
+
+1.  **The Encoder (`$\hat{f}^{-1}$`):** This is a neural network that takes the high-dimensional agent states `H_t` (from `R^(nh)`) and maps them to the lower-dimensional latent thoughts `$\hat{Z}_t$` (in `R^(nz)`).
+    $$
+    \hat{Z}_t = \text{Encoder}(H_t)
+    $$
+    This "encoder" is a learned function, a component of their autoencoder. It is *not* the true inverse of `f`. It is a function that *attempts to recover* the latent thoughts from the observations.
+
+2.  **The Decoder (`$\hat{f}$`):** This is another neural network that takes the lower-dimensional latent thoughts `$\hat{Z}_t$` (from `R^(nz)`) and maps them back to the high-dimensional agent states `$\hat{H}_t$` (in `R^(nh)`).
+    $$
+    \hat{H}_t = \text{Decoder}(\hat{Z}_t) = \hat{f}(\hat{Z}_t)
+    $$
+    This "decoder" is the function for which they apply the sparsity regularization on its Jacobian, `J_f̂`.
+
+### Re-evaluating the "Invertible h" Argument
+
+The statement "there must exist an invertible transformation `h` such that `$\hat{Z}_t = h(Z_t)$`" still holds, but the justification needs to be precise, without invoking a true `f⁻¹` where it doesn't exist.
+
+Let's stick to the paper's actual words and the field's conventions:
+
+*   **"f, assumed to be invertible (to preserve information)"**: This means `f` is **injective**. As we discussed, `f: R^(nz) -> R^(nh)` where `n_z < n_h` can be injective. If `f` is injective, then each `Z_t` maps to a unique `H_t`. This is the crucial aspect of "information preservation" here. If you know `H_t`, and you know it came from the manifold of `f(Z_t)`, you can uniquely determine `Z_t`.
+*   **The Theoretical Identity:** In ideal identifiability theory, when we say `H_t = f(Z_t)` and `H_t = $\hat{f}(\hat{Z}_t)$` for observed data, and we assume both `f` and `$\hat{f}$` are "invertible enough" (i.e., injective and differentiable), then there must be a diffeomorphism `h` mapping `Z_t` to `$\hat{Z}_t$` such that `$\hat{f}(h(Z_t)) = f(Z_t)$`.
+    *   Since `f` is injective, there is a *unique* `Z_t` for each `H_t` on the `f`-manifold.
+    *   Similarly, since `$\hat{f}$` is also expected to be injective (trained to reconstruct with minimal loss and constrained by sparsity), there is a *unique* `$\hat{Z}_t$` for each `H_t` on the `$\hat{f}$`-manifold.
+    *   Therefore, a mapping `h` must exist between `Z_t` and `$\hat{Z}_t$`. If both `f` and `$\hat{f}$` effectively map a *manifold* `M_z` in `R^(nz)` to a *manifold* `M_h` in `R^(nh)` in an information-preserving (injective) way, then the mapping between the two `nz`-dimensional manifolds (`Z_t` and `$\hat{Z}_t$`) *must itself be invertible*.
+
+The critical point is that `h` is a map *between the latent spaces themselves* (`R^(nz)` to `R^(nz)`), not directly between `R^(nh)` and `R^(nz)`.
+
+**To summarize and correct:**
+
+*   **`f` is assumed to be injective (information-preserving), not a full bijection (invertible) when `n_z < n_h`.**
+*   **The autoencoder has a learned "encoder" function (neural network) and a "decoder" function (`$\hat{f}$`, also a neural network).**
+*   **The "encoder" is not the true inverse of `f`. It is a learned approximation of a *left-inverse* from `H` (on the data manifold) to `$\hat{Z}$`.**
+*   **The theoretical existence of `h` (the invertible mapping between `Z_t` and `$\hat{Z}_t$`) is derived from the injectivity of `f` and `$\hat{f}$`, allowing unique identification of latent variables from observed states, even if the ambient observation space is higher dimensional.** The proof then uses the sparsity constraint on `J_f̂` to demonstrate that this `h` must be a permutation.
+
+My apologies again for the imprecision. Your persistent questioning is helping to uncover these crucial nuances.
